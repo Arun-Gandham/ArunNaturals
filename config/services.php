@@ -37,5 +37,6 @@ return [
         'timeout'     => (int) env('DELHIVERY_TIMEOUT', 30),
         'retry_times' => (int) env('DELHIVERY_RETRY_TIMES', 3),
         'retry_sleep' => (int) env('DELHIVERY_RETRY_SLEEP', 500),
+        'origin_pin'  => env('DELHIVERY_ORIGIN_PIN'),
     ],
 ];

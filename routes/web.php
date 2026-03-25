@@ -1,7 +1,9 @@
 <?php
 
 use Illuminate\Support\Facades\Route;
-use App\Http\Controllers\DelhiveryController;
+use Illuminate\Support\Facades\Auth;
+// Enable Laravel auth routes (login, register, etc.)
+Auth::routes();
 
 /*
 |--------------------------------------------------------------------------
@@ -14,12 +16,17 @@ use App\Http\Controllers\DelhiveryController;
 |
 */
 
-Route::prefix('delhivery')->group(function () {
-    Route::get('/pincode/{pincode}', [DelhiveryController::class, 'checkPincode']);
-    Route::post('/shipping-cost', [DelhiveryController::class, 'calculateShippingCost']);
-    Route::post('/shipping-label', [DelhiveryController::class, 'generateShippingLabel']);
-    Route::post('/track', [DelhiveryController::class, 'trackShipment']);
-});
 Route::get('/', function () {
     return view('welcome');
+});
+
+use App\Http\Controllers\Admin\AdminController;
+
+Route::middleware(['auth', 'admin'])->prefix('admin')->name('admin.')->group(function () {
+    Route::get('/users', [AdminController::class, 'users'])->name('users.index');
+    Route::post('/users/create', [AdminController::class, 'createUser'])->name('users.create');
+    Route::patch('/users/{id}/role', [AdminController::class, 'updateUserRole'])->name('users.updateRole');
+    Route::get('/orders/create', [AdminController::class, 'ordersCreate'])->name('orders.create');
+    Route::get('/orders', [AdminController::class, 'orders'])->name('orders.index');
+    Route::get('/insights', [AdminController::class, 'insights'])->name('insights');
 });

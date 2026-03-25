@@ -28,10 +28,20 @@ class DelhiveryController extends Controller
 
             $result = $this->delhiveryService->checkPincode($pincode);
 
+            $deliveryCodes = $result['data']['delivery_codes'] ?? [];
+
+            if (empty($deliveryCodes)) {
+                return ApiResponse::error(
+                    'Shipping not available for this pincode.',
+                    422,
+                    $result['data']
+                );
+            }
+
             return ApiResponse::success(
                 $result['data'],
-                $result['message'],
-                $result['status']
+                'Service available for this pincode.',
+                200
             );
         } catch (DelhiveryException $e) {
             return $this->handleDelhiveryException($e);
