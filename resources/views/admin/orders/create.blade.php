@@ -91,6 +91,20 @@
                             </select>
                         </div>
                     </div>
+                    <div class="row g-2 mb-2">
+                        <div class="col-4">
+                            <label class="form-label">Box Length (cm)</label>
+                            <input type="number" id="box_length" class="form-control" min="1" placeholder="e.g. 20">
+                        </div>
+                        <div class="col-4">
+                            <label class="form-label">Box Width (cm)</label>
+                            <input type="number" id="box_width" class="form-control" min="1" placeholder="e.g. 15">
+                        </div>
+                        <div class="col-4">
+                            <label class="form-label">Box Height (cm)</label>
+                            <input type="number" id="box_height" class="form-control" min="1" placeholder="e.g. 10">
+                        </div>
+                    </div>
                     <div class="row g-2 mb-3">
                         <div class="col-6">
                             <label class="form-label">COD Amount (if COD)</label>
@@ -430,6 +444,10 @@
             , state: document.getElementById('state').value.trim() || null
             , pincode: document.getElementById('pincode').value.trim()
             , notes: document.getElementById('notes').value.trim() || null
+            , cgm: parseInt(document.getElementById('cgm').value, 10) || null
+            , box_length: parseInt(document.getElementById('box_length').value, 10) || null
+            , box_width: parseInt(document.getElementById('box_width').value, 10) || null
+            , box_height: parseInt(document.getElementById('box_height').value, 10) || null
             , shipping_cost: currentShippingCost
             , items
         , };

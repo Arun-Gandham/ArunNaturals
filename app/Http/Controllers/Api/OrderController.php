@@ -24,16 +24,39 @@ class OrderController extends Controller
 
     public function index(Request $request)
     {
-        $query = Order::query()->with('items')->orderByDesc('created_at');
+        $query = Order::query()->with('items');
 
+        // Filter by status (e.g. placed, draft, cancelled)
         if ($status = $request->query('status')) {
             $query->where('status', $status);
         }
 
-        return ApiResponse::success(
-            $query->paginate($request->integer('per_page', 15)),
-            'Orders fetched successfully.'
-        );
+        // Free-text search: order no, waybill, customer name/phone/email
+        if ($search = $request->query('search')) {
+            $query->where(function ($q) use ($search) {
+                $q->where('order_number', 'like', "%{$search}%")
+                    ->orWhere('delhivery_waybill', 'like', "%{$search}%")
+                    ->orWhere('customer_name', 'like', "%{$search}%")
+                    ->orWhere('customer_phone', 'like', "%{$search}%")
+                    ->orWhere('customer_email', 'like', "%{$search}%");
+            });
+        }
+
+        // Date range filter based on created_at (manifested date equivalent)
+        if ($from = $request->query('from_date')) {
+            $query->whereDate('created_at', '>=', $from);
+        }
+
+        if ($to = $request->query('to_date')) {
+            $query->whereDate('created_at', '<=', $to);
+        }
+
+        // Default sort: newest first (similar to Delhivery dashboard)
+        $query->orderByDesc('created_at');
+
+        $orders = $query->paginate($request->integer('per_page', 15));
+
+        return ApiResponse::success($orders, 'Orders fetched successfully.');
     }
 
     public function store(StoreOrderRequest $request)
@@ -107,23 +130,40 @@ class OrderController extends Controller
 
         // Create shipment in Delhivery and store waybill, if possible
         try {
-            // Build minimal CMU payload from order
+            // Build basic product summary for Delhivery (one shipment, multiple products)
+            $productsDescParts = [];
+            $totalQuantity     = 0;
+
+            foreach ($validated['items'] as $item) {
+                $qty = (int) $item['quantity'];
+                $totalQuantity += $qty;
+                $productsDescParts[] = $item['product_name'] . ' x ' . $qty;
+            }
+
+            $productsDesc = implode(', ', $productsDescParts);
+
             $shipmentPayload = [
                 'shipments' => [[
-                    'name'          => $order->customer_name,
-                    'add'           => trim($order->address_line1 . ' ' . (string) $order->address_line2),
-                    'pin'           => $order->pincode,
-                    'city'          => $order->city,
-                    'state'         => $order->state,
-                    'country'       => 'India',
-                    'phone'         => $order->customer_phone,
-                    'order'         => $order->order_number,
-                    'payment_mode'  => 'Prepaid', // matches default in UI; can be extended per-item later
-                    'cod_amount'    => null,
-                    'total_amount'  => $order->total_amount,
-                    'waybill'       => $order->delhivery_waybill ?? '',
-                    'weight'        => null,
-                    'shipping_mode' => 'Surface',
+                    'name'            => $order->customer_name,
+                    'add'             => trim($order->address_line1 . ' ' . (string) $order->address_line2),
+                    'pin'             => $order->pincode,
+                    'city'            => $order->city,
+                    'state'           => $order->state,
+                    'country'         => 'India',
+                    'phone'           => $order->customer_phone,
+                    'order'           => $order->order_number,
+                    'payment_mode'    => 'Prepaid', // matches default in UI; can be extended per-item later
+                    'cod_amount'      => null,
+                    'total_amount'    => $order->total_amount,
+                    'waybill'         => $order->delhivery_waybill ?? '',
+                    'products_desc'   => $productsDesc,
+                    'quantity'        => $totalQuantity ?: 1,
+                    // Use charged weight (grams) from request if provided
+                    'weight'          => $validated['cgm'] ?? null,
+                    'shipment_length' => $validated['box_length'] ?? null,
+                    'shipment_width'  => $validated['box_width'] ?? null,
+                    'shipment_height' => $validated['box_height'] ?? null,
+                    'shipping_mode'   => 'Surface',
                 ]],
                 'pickup_location' => [
                     'name' => config('services.delhivery.pickup_location', 'warehouse_name'),
