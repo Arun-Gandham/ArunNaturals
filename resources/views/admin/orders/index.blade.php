@@ -64,7 +64,6 @@
                         <th>Transport Mode</th>
                         <th>Last Update</th>
                         <th>Payment Mode</th>
-                        <th>Actions</th>
                     </tr>
                     </thead>
                     <tbody></tbody>
@@ -199,15 +198,6 @@
                     </td>
                     <td>
                         <div class="small">Prepaid</div>
-                    </td>
-                    <td>
-                        <div class="btn-group btn-group-sm" role="group">
-                            <a href="${orderShowBase}/${order.id}" class="btn btn-outline-primary">View</a>
-                            ${order.delhivery_waybill
-                                ? `<a href="${orderLabelBase}/${order.id}/label" class="btn btn-outline-secondary">Download Label</a>`
-                                : ''
-                            }
-                        </div>
                     </td>
                 `;
                 tbody.appendChild(tr);
