@@ -2,6 +2,7 @@
 
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\Facades\Auth;
+use App\Http\Controllers\ProductController;
 // Enable Laravel auth routes (login, register, etc.)
 Auth::routes();
 
@@ -19,6 +20,8 @@ Auth::routes();
 Route::get('/', function () {
     return view('welcome');
 });
+
+Route::get('/products/{slug}', [ProductController::class, 'show'])->name('products.show');
 
 use App\Http\Controllers\Admin\AdminController;
 

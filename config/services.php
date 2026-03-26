@@ -39,4 +39,9 @@ return [
         'retry_sleep' => (int) env('DELHIVERY_RETRY_SLEEP', 500),
         'origin_pin'  => env('DELHIVERY_ORIGIN_PIN'),
     ],
+
+    'whatsapp' => [
+        // Example: 91XXXXXXXXXX (country code + number, no + or spaces)
+        'phone' => env('WHATSAPP_PHONE'),
+    ],
 ];

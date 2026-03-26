@@ -2,6 +2,14 @@
 
 @section('content')
 <div class="container mb-5">
+    <div id="globalLoader" class="position-fixed top-0 start-0 w-100 h-100 d-none align-items-center justify-content-center" style="background: rgba(15, 23, 42, 0.35); z-index: 1050;">
+        <div class="bg-white rounded-3 px-4 py-3 d-flex align-items-center shadow">
+            <div class="spinner-border text-success me-3" role="status" style="width: 1.5rem; height: 1.5rem;">
+                <span class="visually-hidden">Loading...</span>
+            </div>
+            <span class="text-muted">Processing, please wait…</span>
+        </div>
+    </div>
     <div class="d-flex justify-content-between align-items-center mb-3">
         <h4 class="mb-0">Create Order</h4>
         <a href="{{ route('admin.orders.index') }}" class="btn btn-outline-secondary">Back to Orders</a>
@@ -108,12 +116,32 @@
 
 <script>
     const apiBase = '{{ url('/api/admin') }}';
-    const delhiveryBase = '{{ url('/api/delhivery') }}';
-    const originPincode = '{{ config('services.delhivery.origin_pin') }}';
-    let currentShippingCost = 0;
-    let isPincodeAvailable = false;
-
-    function showMessage(elementId, message, type = 'info') {
+      const delhiveryBase = '{{ url('/api/delhivery') }}';
+      const originPincode = '{{ config('services.delhivery.origin_pin') }}';
+      let currentShippingCost = 0;
+      let isPincodeAvailable = false;
+      let activeRequests = 0;
+  
+      function setLoading(isLoading) {
+          const loader = document.getElementById('globalLoader');
+          if (!loader) return;
+  
+          if (isLoading) {
+              activeRequests += 1;
+          } else {
+              activeRequests = Math.max(0, activeRequests - 1);
+          }
+  
+          if (activeRequests > 0) {
+              loader.classList.remove('d-none');
+              loader.classList.add('d-flex');
+          } else {
+              loader.classList.remove('d-flex');
+              loader.classList.add('d-none');
+          }
+      }
+  
+      function showMessage(elementId, message, type = 'info') {
         const el = document.getElementById(elementId);
         el.innerHTML = message ? `<div class="alert alert-${type} py-1 mb-0">${message}</div>` : '';
     }
@@ -163,6 +191,8 @@
             return;
         }
 
+        setLoading(true);
+
         try {
             const response = await fetch(`${apiBase}/orders/check-availability`, {
                 method: 'POST',
@@ -190,6 +220,8 @@
             isPincodeAvailable = false;
             setOrderFormEnabled(false);
             showMessage('availabilityResult', 'Error checking availability.', 'danger');
+        } finally {
+            setLoading(false);
         }
     }
 
@@ -259,6 +291,8 @@
             ? parseFloat(codAmountInput.value || '0')
             : 0;
 
+        setLoading(true);
+
         try {
             const response = await fetch(`${delhiveryBase}/shipping-cost`, {
                 method: 'POST',
@@ -315,12 +349,19 @@
         } catch (e) {
             showMessage('shippingSummary', 'Error fetching shipping cost.', 'danger');
             currentShippingCost = 0;
+        } finally {
+            setLoading(false);
         }
     }
 
     async function placeOrder() {
         if (!isPincodeAvailable) {
             showMessage('orderFormMessage', 'First check service availability for this pincode.', 'warning');
+            return;
+        }
+
+        if (!currentShippingCost || currentShippingCost <= 0) {
+            showMessage('orderFormMessage', 'Please calculate shipping cost before placing the order.', 'warning');
             return;
         }
 
@@ -350,6 +391,8 @@
             items,
         };
 
+        setLoading(true);
+
         try {
             const response = await fetch(`${apiBase}/orders`, {
                 method: 'POST',
@@ -371,6 +414,8 @@
             showMessage('orderFormMessage', 'Order placed successfully.', 'success');
         } catch (e) {
             showMessage('orderFormMessage', 'Error placing order.', 'danger');
+        } finally {
+            setLoading(false);
         }
     }
 
