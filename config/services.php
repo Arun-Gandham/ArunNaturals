@@ -38,6 +38,7 @@ return [
         'retry_times' => (int) env('DELHIVERY_RETRY_TIMES', 3),
         'retry_sleep' => (int) env('DELHIVERY_RETRY_SLEEP', 500),
         'origin_pin'  => env('DELHIVERY_ORIGIN_PIN'),
+        'pickup_location' => env('DELHIVERY_PICKUP_LOCATION', 'Arun Natural Products'),
     ],
 
     'whatsapp' => [

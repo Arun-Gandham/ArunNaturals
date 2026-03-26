@@ -91,11 +91,72 @@ class DelhiveryService implements DelhiveryServiceInterface
         return $this->formatSuccessResponse($response, 'Shipment tracking details fetched successfully.');
     }
 
+    public function generateWaybills(int $count = 1): array
+    {
+        $endpoint = '/waybill/api/bulk/json/';
+
+        $query = [
+            // Delhivery examples pass token in query; we already send it as header as well.
+            'token' => $this->token,
+            'count' => $count,
+        ];
+
+        $response = $this->sendGetRequest($endpoint, $query, 'generate_waybills');
+
+        return $this->formatSuccessResponse($response, 'Waybills generated successfully.');
+    }
+
+    public function createShipment(array $payload): array
+    {
+        $endpoint = '/api/cmu/create.json';
+
+        // Delhivery examples expect form fields: format=json & data=<JSON string>
+        $body = [
+            'format' => 'json',
+            'data'   => json_encode($payload),
+        ];
+
+        $response = $this->sendPostRequest($endpoint, $body, 'create_shipment', true);
+
+        return $this->formatSuccessResponse($response, 'Shipment created successfully.');
+    }
+
+    public function updateShipment(array $payload): array
+    {
+        $endpoint = '/api/p/edit';
+
+        $response = $this->sendPostRequest($endpoint, $payload, 'update_shipment');
+
+        return $this->formatSuccessResponse($response, 'Shipment updated successfully.');
+    }
+
+    public function cancelShipment(string $waybill): array
+    {
+        $endpoint = '/api/p/edit';
+
+        $body = [
+            'waybill'     => $waybill,
+            'cancellation'=> 'true',
+        ];
+
+        $response = $this->sendPostRequest($endpoint, $body, 'cancel_shipment');
+
+        return $this->formatSuccessResponse($response, 'Shipment cancelled successfully.');
+    }
+
+    public function createPickup(array $payload): array
+    {
+        $endpoint = '/fm/request/new/';
+
+        $response = $this->sendPostRequest($endpoint, $payload, 'create_pickup');
+
+        return $this->formatSuccessResponse($response, 'Pickup request created successfully.');
+    }
+
     private function client(): PendingRequest
     {
         return Http::baseUrl($this->baseUrl)
             ->withHeaders([
-                'Content-Type'  => 'application/json',
                 'Authorization' => 'Token ' . $this->token,
                 'Accept'        => 'application/json',
             ])
@@ -103,6 +164,61 @@ class DelhiveryService implements DelhiveryServiceInterface
             ->retry($this->retryTimes, $this->retrySleep, function ($exception) {
                 return $exception instanceof ConnectionException;
             });
+    }
+
+    private function sendPostRequest(string $endpoint, array $body = [], string $action = 'delhivery_post', bool $asForm = false): Response
+    {
+        try {
+            Log::info('Delhivery API POST initiated', [
+                'action'   => $action,
+                'endpoint' => $endpoint,
+                'body'     => $body,
+                'base_url' => $this->baseUrl,
+            ]);
+
+            $client = $this->client();
+            if ($asForm) {
+                $client = $client->asForm();
+            }
+
+            $response = $client->post($endpoint, $body);
+
+            Log::info('Delhivery raw POST response', [
+                'action'  => $action,
+                'status'  => $response->status(),
+                'body'    => $response->body(),
+                'json'    => $response->json(),
+            ]);
+
+            if ($response->failed()) {
+                $this->throwApiException($response, $action, $endpoint, $body);
+            }
+
+            return $response;
+        } catch (ConnectionException $e) {
+            Log::error('Delhivery POST connection exception', [
+                'action'  => $action,
+                'message' => $e->getMessage(),
+            ]);
+
+            throw new DelhiveryException(
+                'Unable to connect to Delhivery API: ' . $e->getMessage(),
+                503,
+                ['action' => $action, 'endpoint' => $endpoint]
+            );
+        } catch (\Throwable $e) {
+            Log::error('Delhivery POST unexpected exception', [
+                'action'  => $action,
+                'message' => $e->getMessage(),
+                'trace'   => $e->getTraceAsString(),
+            ]);
+
+            throw new DelhiveryException(
+                'Request to Delhivery API failed: ' . $e->getMessage(),
+                500,
+                ['action' => $action, 'endpoint' => $endpoint]
+            );
+        }
     }
 
     private function sendGetRequest(string $endpoint, array $query = [], string $action = 'delhivery_get'): Response

@@ -23,12 +23,12 @@ class UpdateOrderRequest extends FormRequest
             'state'           => ['sometimes', 'nullable', 'string', 'max:255'],
             'pincode'         => ['sometimes', 'required', 'digits:6'],
             'notes'           => ['sometimes', 'nullable', 'string'],
+            'shipping_cost'   => ['sometimes', 'numeric', 'min:0'],
             'items'           => ['sometimes', 'array', 'min:1'],
             'items.*.product_name' => ['required_with:items', 'string', 'max:255'],
-            'items.*.sku'          => ['nullable', 'string', 'max:100'],
+            'items.*.sku'          => ['nullabl/*  */e', 'string', 'max:100'],
             'items.*.quantity'     => ['required_with:items', 'integer', 'min:1'],
             'items.*.unit_price'   => ['required_with:items', 'numeric', 'min:0'],
         ];
     }
 }
-

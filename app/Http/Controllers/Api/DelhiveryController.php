@@ -87,6 +87,36 @@ class DelhiveryController extends Controller
         }
     }
 
+    public function createPickup(Request $request)
+    {
+        $validated = $request->validate([
+            'pickup_date'            => ['nullable', 'date'],
+            'pickup_time'            => ['nullable', 'date_format:H:i:s'],
+            'expected_package_count' => ['nullable', 'integer', 'min:1'],
+        ]);
+
+        $payload = [
+            'pickup_time'            => $validated['pickup_time'] ?? '11:00:00',
+            'pickup_date'            => $validated['pickup_date'] ?? now()->toDateString(),
+            'pickup_location'        => config('services.delhivery.pickup_location', 'warehouse_name'),
+            'expected_package_count' => $validated['expected_package_count'] ?? 1,
+        ];
+
+        try {
+            $result = $this->delhiveryService->createPickup($payload);
+
+            return ApiResponse::success(
+                $result['data'],
+                $result['message'],
+                $result['status']
+            );
+        } catch (DelhiveryException $e) {
+            return $this->handleDelhiveryException($e);
+        } catch (\Throwable $e) {
+            return $this->handleUnknownException($e, 'create_pickup');
+        }
+    }
+
     public function trackShipment(TrackShipmentRequest $request)
     {
         try {

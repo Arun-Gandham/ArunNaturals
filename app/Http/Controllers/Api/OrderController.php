@@ -12,6 +12,7 @@ use App\Models\Order;
 use App\Models\OrderItem;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
 
 class OrderController extends Controller
@@ -80,7 +81,8 @@ class OrderController extends Controller
                 'city'           => $validated['city'],
                 'state'          => $validated['state'] ?? null,
                 'pincode'        => $validated['pincode'],
-                'status'         => 'placed',
+                // Start as draft; mark as placed only after Delhivery shipment is created.
+                'status'         => 'draft',
                 'subtotal'       => $subtotal,
                 'shipping_cost'  => $shippingCost,
                 'total_amount'   => $total,
@@ -101,7 +103,72 @@ class OrderController extends Controller
             return $order->load('items');
         });
 
-        return ApiResponse::success($order, 'Order created and placed successfully.', 201);
+        $shipmentCreated = false;
+
+        // Create shipment in Delhivery and store waybill, if possible
+        try {
+            // Build minimal CMU payload from order
+            $shipmentPayload = [
+                'shipments' => [[
+                    'name'          => $order->customer_name,
+                    'add'           => trim($order->address_line1 . ' ' . (string) $order->address_line2),
+                    'pin'           => $order->pincode,
+                    'city'          => $order->city,
+                    'state'         => $order->state,
+                    'country'       => 'India',
+                    'phone'         => $order->customer_phone,
+                    'order'         => $order->order_number,
+                    'payment_mode'  => 'Prepaid', // matches default in UI; can be extended per-item later
+                    'cod_amount'    => null,
+                    'total_amount'  => $order->total_amount,
+                    'waybill'       => $order->delhivery_waybill ?? '',
+                    'weight'        => null,
+                    'shipping_mode' => 'Surface',
+                ]],
+                'pickup_location' => [
+                    'name' => config('services.delhivery.pickup_location', 'warehouse_name'),
+                ],
+            ];
+
+            $createResult = $this->delhiveryService->createShipment($shipmentPayload);
+            $data         = $createResult['data'] ?? [];
+
+            Log::info('Delhivery shipment create response', [
+                'order_id' => $order->id,
+                'payload'  => $shipmentPayload,
+                'response' => $data,
+            ]);
+
+            // Try to extract waybill from typical response shapes
+            $waybill = $data['packages'][0]['waybill'] ?? $data['waybill'] ?? null;
+
+            if ($waybill) {
+                $order->delhivery_waybill = (string) $waybill;
+                $order->status            = 'placed';
+                $order->save();
+                $shipmentCreated = true;
+            }
+        } catch (DelhiveryException $e) {
+            Log::error('Delhivery shipment creation failed', [
+                'order_id' => $order->id,
+                'message'  => $e->getMessage(),
+                'context'  => method_exists($e, 'getContext') ? $e->getContext() : null,
+            ]);
+        }
+
+        if (! $shipmentCreated) {
+            // Make it clear this order is not yet scheduled with the delivery partner.
+            $notes = trim((string) $order->notes);
+            $suffix = 'Not scheduled with delivery partner (Delhivery shipment not created).';
+            $order->notes = $notes ? ($notes . ' ' . $suffix) : $suffix;
+            $order->save();
+        }
+
+        $message = $shipmentCreated
+            ? 'Order created and ready for shipping.'
+            : 'Order created but not yet scheduled with delivery partner.';
+
+        return ApiResponse::success($order->fresh('items'), $message, 201);
     }
 
     public function show(Order $order)
@@ -129,7 +196,6 @@ class OrderController extends Controller
                 }
 
                 $order->subtotal = $subtotal;
-                $order->total_amount = $order->subtotal + $order->shipping_cost;
 
                 foreach ($validated['items'] as $item) {
                     $order->items()->create([
@@ -143,10 +209,27 @@ class OrderController extends Controller
             }
 
             $order->fill(collect($validated)->except('items')->toArray());
+            $order->total_amount = $order->subtotal + $order->shipping_cost;
             $order->save();
 
             return $order->load('items');
         });
+
+        // If shipping attributes changed and we have a waybill, sync to Delhivery
+        if ($order->delhivery_waybill && isset($validated['shipping_cost'])) {
+            try {
+                $payload = [
+                    'waybill' => $order->delhivery_waybill,
+                    // Map basic payment / amount fields; can be extended
+                    'pt'      => 'Pre-paid',
+                    'cod'     => 0,
+                    'gm'      => null,
+                ];
+                $this->delhiveryService->updateShipment($payload);
+            } catch (DelhiveryException $e) {
+                // Ignore Delhivery error for now; order DB is already updated
+            }
+        }
 
         return ApiResponse::success($order, 'Order updated successfully.');
     }
@@ -155,6 +238,16 @@ class OrderController extends Controller
     {
         if ($order->status === 'cancelled') {
             return ApiResponse::error('Order already cancelled.', 422);
+        }
+
+        // Cancel in Delhivery first, if waybill exists
+        if ($order->delhivery_waybill) {
+            try {
+                $this->delhiveryService->cancelShipment($order->delhivery_waybill);
+            } catch (DelhiveryException $e) {
+                // If Delhivery cancellation fails, we can choose to still cancel locally
+                // or return an error. For now, cancel locally but this can be adjusted.
+            }
         }
 
         $order->status = 'cancelled';

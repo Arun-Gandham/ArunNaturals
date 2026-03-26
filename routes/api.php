@@ -19,6 +19,7 @@ Route::prefix('delhivery')->group(function () {
     Route::post('/shipping-cost', [DelhiveryController::class, 'calculateShippingCost']);
     Route::post('/shipping-label', [DelhiveryController::class, 'generateShippingLabel']);
     Route::post('/track', [DelhiveryController::class, 'trackShipment']);
+    Route::post('/pickup', [DelhiveryController::class, 'createPickup']);
 });
 
 Route::prefix('admin')->group(function () {
