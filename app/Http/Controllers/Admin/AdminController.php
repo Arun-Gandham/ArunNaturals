@@ -153,6 +153,26 @@ class AdminController extends Controller
             ->with('success', 'Settings updated successfully.');
     }
 
+    public function deliveryShipments()
+    {
+        $shipments = Order::whereNotNull('delhivery_waybill')
+            ->latest()
+            ->limit(25)
+            ->get();
+
+        return view('admin.delivery.shipments', compact('shipments'));
+    }
+
+    public function deliveryPickups()
+    {
+        return view('admin.delivery.pickups');
+    }
+
+    public function deliveryServiceability()
+    {
+        return view('admin.delivery.serviceability');
+    }
+
     public function orders()
     {
         $orders = Order::latest()->get();

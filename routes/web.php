@@ -28,8 +28,14 @@ Route::get('/products/{slug}', [ProductController::class, 'show'])->name('produc
 Route::middleware(['auth', 'admin'])->prefix('admin')->name('admin.')->group(function () {
     Route::get('/dashboard', [AdminController::class, 'dashboard'])->name('dashboard');
 
+    // Settings
     Route::get('/settings', [AdminController::class, 'settings'])->name('settings.edit');
     Route::post('/settings', [AdminController::class, 'settingsUpdate'])->name('settings.update');
+
+    // Delivery tools
+    Route::get('/delivery/shipments', [AdminController::class, 'deliveryShipments'])->name('delivery.shipments');
+    Route::get('/delivery/pickups', [AdminController::class, 'deliveryPickups'])->name('delivery.pickups');
+    Route::get('/delivery/serviceability', [AdminController::class, 'deliveryServiceability'])->name('delivery.serviceability');
 
     Route::get('/users', [AdminController::class, 'users'])->name('users.index');
     Route::post('/users/create', [AdminController::class, 'createUser'])->name('users.create');

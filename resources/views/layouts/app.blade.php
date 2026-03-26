@@ -250,8 +250,8 @@
             <div class="sidebar-section-label px-1">Delivery</div>
             <ul class="nav flex-column sidebar-nav">
                 <li class="nav-item mb-1">
-                    <a href="#"
-                       class="nav-link sidebar-link">
+                    <a href="{{ route('admin.delivery.shipments') }}"
+                       class="nav-link sidebar-link {{ request()->routeIs('admin.delivery.shipments') ? 'active' : '' }}">
                         <span class="sidebar-icon">
                             <i class="fa-solid fa-truck"></i>
                         </span>
@@ -259,8 +259,8 @@
                     </a>
                 </li>
                 <li class="nav-item mb-1">
-                    <a href="#"
-                       class="nav-link sidebar-link">
+                    <a href="{{ route('admin.delivery.pickups') }}"
+                       class="nav-link sidebar-link {{ request()->routeIs('admin.delivery.pickups') ? 'active' : '' }}">
                         <span class="sidebar-icon">
                             <i class="fa-solid fa-truck-ramp-box"></i>
                         </span>
@@ -268,8 +268,8 @@
                     </a>
                 </li>
                 <li class="nav-item mb-1">
-                    <a href="#"
-                       class="nav-link sidebar-link">
+                    <a href="{{ route('admin.delivery.serviceability') }}"
+                       class="nav-link sidebar-link {{ request()->routeIs('admin.delivery.serviceability') ? 'active' : '' }}">
                         <span class="sidebar-icon">
                             <i class="fa-solid fa-location-dot"></i>
                         </span>
