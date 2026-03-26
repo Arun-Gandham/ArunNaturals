@@ -277,4 +277,195 @@ class AdminController extends Controller
                 ->with('error', 'Unexpected error while downloading shipping label: ' . $e->getMessage());
         }
     }
+
+    public function bulkLabels(Request $request)
+    {
+        $orderIds = $request->input('order_ids', []);
+        if (! is_array($orderIds) || empty($orderIds)) {
+            return redirect()
+                ->back()
+                ->with('error', 'Please select at least one order to download labels.');
+        }
+
+        $orders = Order::whereIn('id', $orderIds)->get();
+        $waybills = $orders->pluck('delhivery_waybill')->filter()->unique()->values()->all();
+
+        if (empty($waybills)) {
+            return redirect()
+                ->back()
+                ->with('error', 'Selected orders do not have Delhivery waybills yet.');
+        }
+
+        $baseUrl = rtrim((string) config('services.delhivery.base_url'), '/');
+        $token   = (string) config('services.delhivery.token');
+
+        if (! $baseUrl || ! $token) {
+            return redirect()
+                ->back()
+                ->with('error', 'Delhivery configuration is missing. Please check env settings.');
+        }
+
+        try {
+            $labelBase = rtrim($baseUrl, '/');
+            if (Str::endsWith($labelBase, '/api')) {
+                $labelBase = substr($labelBase, 0, -4);
+            }
+            $labelUrl = $labelBase . '/api/p/packing_slip';
+
+            $response = Http::withHeaders([
+                    'Authorization' => 'Token ' . $token,
+                    'Content-Type'  => 'application/json',
+                ])
+                ->timeout(60)
+                ->get($labelUrl, [
+                    'wbns'     => implode(',', $waybills),
+                    'pdf'      => 'true',
+                    'pdf_size' => '4R',
+                ]);
+
+            if ($response->failed()) {
+                $status = $response->status();
+                $json   = null;
+                $reason = null;
+                try {
+                    $json = $response->json();
+                } catch (\Throwable $ignore) {
+                    $json = null;
+                }
+
+                if (is_array($json)) {
+                    $reason = $json['rmk']
+                        ?? $json['Error']
+                        ?? $json['error']
+                        ?? $json['message']
+                        ?? null;
+                }
+
+                if (! $reason) {
+                    $body = (string) $response->body();
+                    $reason = $body ? Str::limit(trim(strip_tags($body)), 150) : null;
+                }
+
+                Log::warning('Failed to download bulk Delhivery shipping labels', [
+                    'order_ids' => $orderIds,
+                    'status'    => $status,
+                    'reason'    => $reason,
+                ]);
+
+                $message = 'Could not download bulk shipping labels from Delhivery.';
+                if ($reason) {
+                    $message .= ' Reason: ' . $reason . ' (HTTP ' . $status . ')';
+                } else {
+                    $message .= ' HTTP status: ' . $status . '.';
+                }
+
+                return redirect()
+                    ->back()
+                    ->with('error', $message);
+            }
+
+            $json = null;
+            try {
+                $json = $response->json();
+            } catch (\Throwable $ignore) {
+                $json = null;
+            }
+
+            $downloadUrl = null;
+            if (is_array($json)) {
+                $downloadUrl = $json['packages'][0]['pdf_download_link']
+                    ?? $json['pdf_download_link']
+                    ?? null;
+            }
+
+            if ($downloadUrl) {
+                $pdfResponse = Http::timeout(60)->get($downloadUrl);
+
+                if ($pdfResponse->failed()) {
+                    Log::warning('Failed to fetch Delhivery bulk PDF from download URL', [
+                        'order_ids' => $orderIds,
+                        'status'    => $pdfResponse->status(),
+                    ]);
+
+                    return redirect()
+                        ->back()
+                        ->with('error', 'Delhivery returned a bulk label link, but the PDF could not be fetched.');
+                }
+
+                $pdfBody        = (string) $pdfResponse->body();
+                $pdfContentType = (string) $pdfResponse->header('Content-Type', '');
+
+                $isPdfType = Str::contains(strtolower($pdfContentType), 'pdf');
+                $isPdfBody = Str::startsWith($pdfBody, '%PDF');
+
+                if (! ($isPdfType || $isPdfBody)) {
+                    $snippet = $pdfBody ? Str::limit(trim(strip_tags($pdfBody)), 150) : null;
+
+                    Log::warning('Downloaded Delhivery bulk label link did not return a valid PDF', [
+                        'order_ids'    => $orderIds,
+                        'content_type' => $pdfContentType,
+                        'snippet'      => $snippet,
+                    ]);
+
+                    $message = 'Delhivery bulk label download link did not return a valid PDF.';
+                    if ($snippet) {
+                        $message .= ' Reason: ' . $snippet;
+                    }
+
+                    return redirect()
+                        ->back()
+                        ->with('error', $message);
+                }
+
+                $filename = 'bulk-labels-' . now()->format('Ymd-His') . '.pdf';
+
+                return response($pdfBody, 200, [
+                    'Content-Type'        => $pdfContentType ?: 'application/pdf',
+                    'Content-Disposition' => 'attachment; filename="' . $filename . '"',
+                ]);
+            }
+
+            // Fallback: try direct PDF
+            $body        = (string) $response->body();
+            $contentType = (string) $response->header('Content-Type', '');
+
+            $isPdfType = Str::contains(strtolower($contentType), 'pdf');
+            $isPdfBody = Str::startsWith($body, '%PDF');
+
+            if (! ($isPdfType || $isPdfBody)) {
+                $snippet = $body ? Str::limit(trim(strip_tags($body)), 150) : null;
+
+                Log::warning('Delhivery bulk label response is not a valid PDF', [
+                    'order_ids'   => $orderIds,
+                    'content_type'=> $contentType,
+                    'snippet'     => $snippet,
+                ]);
+
+                $message = 'Delhivery bulk label API did not return a valid PDF.';
+                if ($snippet) {
+                    $message .= ' Reason: ' . $snippet;
+                }
+
+                return redirect()
+                    ->back()
+                    ->with('error', $message);
+            }
+
+            $filename = 'bulk-labels-' . now()->format('Ymd-His') . '.pdf';
+
+            return response($body, 200, [
+                'Content-Type'        => $contentType ?: 'application/pdf',
+                'Content-Disposition' => 'attachment; filename="' . $filename . '"',
+            ]);
+        } catch (\Throwable $e) {
+            Log::error('Error while downloading bulk Delhivery shipping labels', [
+                'order_ids' => $orderIds,
+                'message'   => $e->getMessage(),
+            ]);
+
+            return redirect()
+                ->back()
+                ->with('error', 'Unexpected error while downloading bulk shipping labels: ' . $e->getMessage());
+        }
+    }
 }

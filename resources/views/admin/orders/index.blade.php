@@ -42,7 +42,12 @@
     <div class="card">
         <div class="card-header d-flex justify-content-between align-items-center">
             <h5 class="mb-0">Order List</h5>
-            <button class="btn btn-sm btn-outline-secondary" type="button" id="refreshOrdersBtn">Refresh</button>
+            <div class="d-flex gap-2">
+                <button class="btn btn-sm btn-outline-secondary" type="button" id="refreshOrdersBtn">Refresh</button>
+                <button class="btn btn-sm btn-primary" type="button" id="downloadSelectedLabelsBtn">
+                    Download Selected Labels
+                </button>
+            </div>
         </div>
         <div class="card-body p-0">
             <div class="table-responsive">
@@ -50,7 +55,7 @@
                     <thead class="table-light">
                     <tr>
                         <th style="width: 36px;">
-                            <input type="checkbox" disabled>
+                            <input type="checkbox" id="selectAllOrders">
                         </th>
                         <th>Order ID and AWB</th>
                         <th>Manifested Date</th>
@@ -75,6 +80,7 @@
     const apiBase = '{{ url('/api/admin') }}';
     const orderShowBase = '{{ url('/admin/orders') }}';
     const orderLabelBase = '{{ url('/admin/orders') }}';
+    const bulkLabelsUrl = '{{ route('admin.orders.labels.bulk') }}';
 
     let currentPage = 1;
     let lastPage = 1;
@@ -150,7 +156,7 @@
                 const deliveryAddress = `${order.customer_name || ''}, ${(order.address_line1 || '')}${order.address_line2 ? ', ' + order.address_line2 : ''}, ${(order.city || '')} - ${(order.pincode || '')}`;
 
                 tr.innerHTML = `
-                    <td><input type="checkbox" disabled></td>
+                    <td><input type="checkbox" class="order-select" value="${order.id}" ${order.delhivery_waybill ? '' : 'disabled'}></td>
                     <td>
                         <div class="fw-semibold">
                             <a href="${orderShowBase}/${order.id}" class="text-decoration-none">${order.order_number}</a>
@@ -245,7 +251,57 @@
     }
 
     document.addEventListener('DOMContentLoaded', () => {
-        document.getElementById('refreshOrdersBtn').addEventListener('click', () => loadOrders());
+        const refreshBtn = document.getElementById('refreshOrdersBtn');
+        const downloadSelectedBtn = document.getElementById('downloadSelectedLabelsBtn');
+        const selectAllCheckbox = document.getElementById('selectAllOrders');
+
+        if (refreshBtn) {
+            refreshBtn.addEventListener('click', () => loadOrders());
+        }
+
+        if (selectAllCheckbox) {
+            selectAllCheckbox.addEventListener('change', () => {
+                const checkboxes = document.querySelectorAll('.order-select');
+                checkboxes.forEach(cb => {
+                    if (!cb.disabled) {
+                        cb.checked = selectAllCheckbox.checked;
+                    }
+                });
+            });
+        }
+
+        if (downloadSelectedBtn) {
+            downloadSelectedBtn.addEventListener('click', () => {
+                const selected = Array.from(document.querySelectorAll('.order-select:checked'))
+                    .map(cb => cb.value);
+
+                if (!selected.length) {
+                    alert('Please select at least one order with a waybill to download labels.');
+                    return;
+                }
+
+                const form = document.createElement('form');
+                form.method = 'POST';
+                form.action = bulkLabelsUrl;
+
+                const csrf = document.createElement('input');
+                csrf.type = 'hidden';
+                csrf.name = '_token';
+                csrf.value = '{{ csrf_token() }}';
+                form.appendChild(csrf);
+
+                selected.forEach(id => {
+                    const input = document.createElement('input');
+                    input.type = 'hidden';
+                    input.name = 'order_ids[]';
+                    input.value = id;
+                    form.appendChild(input);
+                });
+
+                document.body.appendChild(form);
+                form.submit();
+            });
+        }
 
         document.getElementById('ordersFilterForm').addEventListener('submit', function (e) {
             e.preventDefault();
