@@ -5,6 +5,9 @@ namespace App\Http\Controllers\Admin;
 use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
 use App\Models\Order;
+use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Str;
 
 class AdminController extends Controller
 {
@@ -73,5 +76,205 @@ class AdminController extends Controller
         $order->load('items');
 
         return view('admin.orders.show', compact('order'));
+    }
+
+    public function orderLabel(Order $order)
+    {
+        if (! $order->delhivery_waybill) {
+            return redirect()
+                ->route('admin.orders.show', $order)
+                ->with('error', 'Delhivery waybill is not available for this order.');
+        }
+
+        $baseUrl = rtrim((string) config('services.delhivery.base_url'), '/');
+        $token   = (string) config('services.delhivery.token');
+
+        if (! $baseUrl || ! $token) {
+            return redirect()
+                ->route('admin.orders.show', $order)
+                ->with('error', 'Delhivery configuration is missing. Please check env settings.');
+        }
+
+        try {
+            // Build label URL exactly like the working curl:
+            // GET {base}/api/p/packing_slip?wbns=...&pdf=true&pdf_size=4R
+            $labelBase = rtrim($baseUrl, '/');
+            if (Str::endsWith($labelBase, '/api')) {
+                $labelBase = substr($labelBase, 0, -4);
+            }
+            $labelUrl = $labelBase . '/api/p/packing_slip';
+
+            $response = Http::withHeaders([
+                    'Authorization' => 'Token ' . $token,
+                    'Content-Type'  => 'application/json',
+                ])
+                ->timeout(60)
+                ->get($labelUrl, [
+                    'wbns'      => $order->delhivery_waybill,
+                    'pdf'       => 'true',
+                    'pdf_size'  => '4R',
+                ]);
+
+            if ($response->failed()) {
+                $status = $response->status();
+
+                // Try to extract a meaningful message from Delhivery response
+                $json   = null;
+                $reason = null;
+                try {
+                    $json = $response->json();
+                } catch (\Throwable $ignore) {
+                    $json = null;
+                }
+
+                if (is_array($json)) {
+                    $reason = $json['rmk']
+                        ?? $json['Error']
+                        ?? $json['error']
+                        ?? $json['message']
+                        ?? null;
+                }
+
+                if (! $reason) {
+                    $body = (string) $response->body();
+                    $reason = $body ? Str::limit(trim(strip_tags($body)), 150) : null;
+                }
+
+                Log::warning('Failed to download Delhivery shipping label', [
+                    'order_id' => $order->id,
+                    'status'   => $status,
+                    'reason'   => $reason,
+                ]);
+
+                $message = 'Could not download shipping label from Delhivery.';
+                if ($reason) {
+                    $message .= ' Reason: ' . $reason . ' (HTTP ' . $status . ')';
+                } else {
+                    $message .= ' HTTP status: ' . $status . '.';
+                }
+
+                return redirect()
+                    ->route('admin.orders.show', $order)
+                    ->with('error', $message);
+            }
+
+            // Delhivery often returns JSON with a pdf_download_link instead of raw PDF.
+            $json = null;
+            try {
+                $json = $response->json();
+            } catch (\Throwable $ignore) {
+                $json = null;
+            }
+
+            $downloadUrl = null;
+            if (is_array($json)) {
+                $downloadUrl = $json['packages'][0]['pdf_download_link']
+                    ?? $json['pdf_download_link']
+                    ?? null;
+            }
+
+            if ($downloadUrl) {
+                // Fetch the actual PDF from the provided download URL
+                try {
+                    $pdfResponse = Http::timeout(60)->get($downloadUrl);
+
+                    if ($pdfResponse->failed()) {
+                        Log::warning('Failed to fetch Delhivery PDF from download URL', [
+                            'order_id' => $order->id,
+                            'status'   => $pdfResponse->status(),
+                        ]);
+
+                        return redirect()
+                            ->route('admin.orders.show', $order)
+                            ->with('error', 'Delhivery returned a label link, but the PDF could not be fetched.');
+                    }
+
+                    $pdfBody        = (string) $pdfResponse->body();
+                    $pdfContentType = (string) $pdfResponse->header('Content-Type', '');
+
+                    $isPdfType = Str::contains(strtolower($pdfContentType), 'pdf');
+                    $isPdfBody = Str::startsWith($pdfBody, '%PDF');
+
+                    // Consider it a valid PDF if either content type OR body looks like PDF.
+                    if (! ($isPdfType || $isPdfBody)) {
+                        $snippet = $pdfBody ? Str::limit(trim(strip_tags($pdfBody)), 150) : null;
+
+                        Log::warning('Downloaded Delhivery label link did not return a valid PDF', [
+                            'order_id'     => $order->id,
+                            'content_type' => $pdfContentType,
+                            'snippet'      => $snippet,
+                        ]);
+
+                        $message = 'Delhivery label download link did not return a valid PDF.';
+                        if ($snippet) {
+                            $message .= ' Reason: ' . $snippet;
+                        }
+
+                        return redirect()
+                            ->route('admin.orders.show', $order)
+                            ->with('error', $message);
+                    }
+
+                    $filename = $order->order_number . '-label.pdf';
+
+                    return response($pdfBody, 200, [
+                        'Content-Type'        => $pdfContentType ?: 'application/pdf',
+                        'Content-Disposition' => 'attachment; filename="' . $filename . '"',
+                    ]);
+                } catch (\Throwable $e) {
+                    Log::error('Error while fetching Delhivery label from download URL', [
+                        'order_id' => $order->id,
+                        'message'  => $e->getMessage(),
+                    ]);
+
+                    return redirect()
+                        ->route('admin.orders.show', $order)
+                        ->with('error', 'Unexpected error while fetching label PDF from Delhivery link: ' . $e->getMessage());
+                }
+            }
+
+            // Fallback: try to treat the original response as a direct PDF
+            $body        = (string) $response->body();
+            $contentType = (string) $response->header('Content-Type', '');
+
+            $isPdfType = Str::contains(strtolower($contentType), 'pdf');
+            $isPdfBody = Str::startsWith($body, '%PDF');
+
+            // Same relaxed check for direct PDF responses.
+            if (! ($isPdfType || $isPdfBody)) {
+                $snippet = $body ? Str::limit(trim(strip_tags($body)), 150) : null;
+
+                Log::warning('Delhivery label response is not a valid PDF', [
+                    'order_id'     => $order->id,
+                    'content_type' => $contentType,
+                    'snippet'      => $snippet,
+                ]);
+
+                $message = 'Delhivery did not return a valid PDF label.';
+                if ($snippet) {
+                    $message .= ' Reason: ' . $snippet;
+                }
+
+                return redirect()
+                    ->route('admin.orders.show', $order)
+                    ->with('error', $message);
+            }
+
+            $filename = $order->order_number . '-label.pdf';
+
+            return response($body, 200, [
+                'Content-Type'        => $contentType ?: 'application/pdf',
+                'Content-Disposition' => 'attachment; filename="' . $filename . '"',
+            ]);
+        } catch (\Throwable $e) {
+            Log::error('Error while downloading Delhivery shipping label', [
+                'order_id' => $order->id,
+                'message'  => $e->getMessage(),
+            ]);
+
+            return redirect()
+                ->route('admin.orders.show', $order)
+                ->with('error', 'Unexpected error while downloading shipping label: ' . $e->getMessage());
+        }
     }
 }

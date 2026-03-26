@@ -7,6 +7,16 @@
         <a href="{{ route('admin.orders.index') }}" class="btn btn-outline-secondary">Back to Orders</a>
     </div>
 
+    @if(session('error'))
+        <div class="alert alert-danger py-2 mb-3">
+            {{ session('error') }}
+        </div>
+    @elseif(session('success'))
+        <div class="alert alert-success py-2 mb-3">
+            {{ session('success') }}
+        </div>
+    @endif
+
     <div class="card mb-3">
         <div class="card-header d-flex justify-content-between align-items-center">
             <div>
@@ -18,6 +28,11 @@
                     {{ $order->status }}
                 </span>
                 <div class="btn-group btn-group-sm" role="group" aria-label="Order actions">
+                    @if($order->delhivery_waybill)
+                        <a href="{{ route('admin.orders.label', $order) }}" class="btn btn-outline-secondary">
+                            Download Label
+                        </a>
+                    @endif
                     <button type="button" class="btn btn-outline-primary" id="updateShippingBtn">
                         Update Shipping
                     </button>

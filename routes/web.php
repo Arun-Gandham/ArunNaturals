@@ -34,6 +34,7 @@ Route::middleware(['auth', 'admin'])->prefix('admin')->name('admin.')->group(fun
     Route::get('/orders/create', [AdminController::class, 'ordersCreate'])->name('orders.create');
     Route::get('/orders', [AdminController::class, 'orders'])->name('orders.index');
     Route::get('/orders/{order}', [AdminController::class, 'orderShow'])->name('orders.show');
+    Route::get('/orders/{order}/label', [AdminController::class, 'orderLabel'])->name('orders.label');
 
     Route::get('/insights', [AdminController::class, 'insights'])->name('insights');
 
