@@ -30,6 +30,8 @@
                 <li class="nav-item mb-2"><a href="{{ route('admin.orders.index') }}" class="nav-link text-white">Orders</a></li>
                 <li class="nav-item mb-2"><a href="{{ route('admin.users.index') }}" class="nav-link text-white">Users</a></li>
                 <li class="nav-item mb-2"><a href="{{ route('admin.insights') }}" class="nav-link text-white">Insights</a></li>
+                <li class="nav-item mb-2"><a class="nav-link text-white" href="{{ route('admin.products.index') }}">Products</a></li>
+
                 <li class="nav-item mb-2">
                     <div class="dropdown">
                         <a class="nav-link text-white dropdown-toggle" href="#" id="deliveryDropdown" data-bs-toggle="dropdown" aria-expanded="false">Delivery</a>

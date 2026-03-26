@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
+use App\Models\Order;
 
 class AdminController extends Controller
 {
@@ -54,12 +55,23 @@ class AdminController extends Controller
 
     public function orders()
     {
-        $orders = \App\Models\Order::latest()->get();
+        $orders = Order::latest()->get();
         return view('admin.orders.index', compact('orders'));
     }
 
     public function ordersCreate()
     {
-        return view('admin.orders.create');
+        $products = \App\Models\Product::select('id', 'name', 'sku', 'price')
+            ->orderBy('name')
+            ->get();
+
+        return view('admin.orders.create', compact('products'));
+    }
+
+    public function orderShow(Order $order)
+    {
+        $order->load('items');
+
+        return view('admin.orders.show', compact('order'));
     }
 }

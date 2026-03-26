@@ -115,51 +115,52 @@
 </div>
 
 <script>
+    const products = @json($products ?? []);
     const apiBase = '{{ url('/api/admin') }}';
-      const delhiveryBase = '{{ url('/api/delhivery') }}';
-      const originPincode = '{{ config('services.delhivery.origin_pin') }}';
-      let currentShippingCost = 0;
-      let isPincodeAvailable = false;
-      let activeRequests = 0;
-  
-      function setLoading(isLoading) {
-          const loader = document.getElementById('globalLoader');
-          if (!loader) return;
-  
-          if (isLoading) {
-              activeRequests += 1;
-          } else {
-              activeRequests = Math.max(0, activeRequests - 1);
-          }
-  
-          if (activeRequests > 0) {
-              loader.classList.remove('d-none');
-              loader.classList.add('d-flex');
-          } else {
-              loader.classList.remove('d-flex');
-              loader.classList.add('d-none');
-          }
-      }
-  
-      function showMessage(elementId, message, type = 'info') {
+    const delhiveryBase = '{{ url('/api/delhivery') }}';
+    const originPincode = '{{ config('services.delhivery.origin_pin') }}';
+    let currentShippingCost = 0;
+    let isPincodeAvailable = false;
+    let activeRequests = 0;
+
+    function setLoading(isLoading) {
+        const loader = document.getElementById('globalLoader');
+        if (!loader) return;
+
+        if (isLoading) {
+            activeRequests += 1;
+        } else {
+            activeRequests = Math.max(0, activeRequests - 1);
+        }
+
+        if (activeRequests > 0) {
+            loader.classList.remove('d-none');
+            loader.classList.add('d-flex');
+        } else {
+            loader.classList.remove('d-flex');
+            loader.classList.add('d-none');
+        }
+    }
+
+    function showMessage(elementId, message, type = 'info') {
         const el = document.getElementById(elementId);
         el.innerHTML = message ? `<div class="alert alert-${type} py-1 mb-0">${message}</div>` : '';
     }
 
     function setOrderFormEnabled(enabled) {
         const fields = [
-            'customer_name',
-            'customer_phone',
-            'customer_email',
-            'address_line1',
-            'address_line2',
-            'city',
-            'state',
-            'notes',
-            'cgm',
-            'payment_type',
-            'cod_amount',
-        ];
+            'customer_name'
+            , 'customer_phone'
+            , 'customer_email'
+            , 'address_line1'
+            , 'address_line2'
+            , 'city'
+            , 'state'
+            , 'notes'
+            , 'cgm'
+            , 'payment_type'
+            , 'cod_amount'
+        , ];
 
         fields.forEach(id => {
             const el = document.getElementById(id);
@@ -177,9 +178,11 @@
         });
 
         // Existing item rows
-        document.querySelectorAll('#itemsContainer input').forEach(input => {
-            input.disabled = !enabled;
-        });
+        document
+            .querySelectorAll('#itemsContainer input, #itemsContainer select')
+            .forEach(el => {
+                el.disabled = !enabled;
+            });
     }
 
     async function checkAvailability() {
@@ -195,13 +198,15 @@
 
         try {
             const response = await fetch(`${apiBase}/orders/check-availability`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Accept': 'application/json',
-                    'X-CSRF-TOKEN': '{{ csrf_token() }}',
-                },
-                body: JSON.stringify({ pincode })
+                method: 'POST'
+                , headers: {
+                    'Content-Type': 'application/json'
+                    , 'Accept': 'application/json'
+                    , 'X-CSRF-TOKEN': '{{ csrf_token() }}'
+                , }
+                , body: JSON.stringify({
+                    pincode
+                })
             });
 
             const data = await response.json();
@@ -229,11 +234,28 @@
         const container = document.getElementById('itemsContainer');
         const row = document.createElement('div');
         row.className = 'row g-2 mb-2 align-items-end';
+
+        const options = (products && products.length) ? ['<option value=\"\">Select product</option>'].concat(
+                products.map(p => {
+                    const name = (p.name || '').replace(/"/g, '&quot;');
+                    const sku = (p.sku || '').replace(/"/g, '&quot;');
+                    const price = p.price ?? 0;
+                    const label = sku ? `${name} (${sku})` : name;
+                    return `<option value=\"${p.id}\" data-name=\"${name}\" data-sku=\"${sku}\" data-price=\"${price}\">${label}</option>`;
+                })
+            ).join('') :
+            '<option value=\"\">No products available</option>';
+
         row.innerHTML = `
             <div class="col-4">
+                <select class="form-select item-product-select">
+                    ${options}
+                </select>
+            </div>
+            <div class="col-3">
                 <input type="text" class="form-control item-product-name" placeholder="Product" value="${defaults.product_name || ''}">
             </div>
-            <div class="col-2">
+            <div class="col-1">
                 <input type="text" class="form-control item-sku" placeholder="SKU" value="${defaults.sku || ''}">
             </div>
             <div class="col-2">
@@ -242,11 +264,32 @@
             <div class="col-2">
                 <input type="number" class="form-control item-price" min="0" step="0.01" placeholder="Price" value="${defaults.unit_price || 0}">
             </div>
-            <div class="col-2 text-end">
+            <div class="col-12 col-sm-12 col-md-12 col-lg-12 text-end mt-1">
                 <button class="btn btn-sm btn-outline-danger remove-item-btn" type="button">&times;</button>
             </div>
         `;
         container.appendChild(row);
+
+        const selectEl = row.querySelector('.item-product-select');
+        const nameInput = row.querySelector('.item-product-name');
+        const skuInput = row.querySelector('.item-sku');
+        const priceInput = row.querySelector('.item-price');
+
+        if (selectEl) {
+            selectEl.addEventListener('change', () => {
+                const selected = selectEl.options[selectEl.selectedIndex];
+                if (selected && selected.value) {
+                    nameInput.value = selected.getAttribute('data-name') || '';
+                    skuInput.value = selected.getAttribute('data-sku') || '';
+                    const price = parseFloat(selected.getAttribute('data-price') || '0') || 0;
+                    priceInput.value = price;
+                } else {
+                    if (!defaults.product_name) nameInput.value = '';
+                    if (!defaults.sku) skuInput.value = '';
+                    if (!defaults.unit_price) priceInput.value = 0;
+                }
+            });
+        }
 
         row.querySelector('.remove-item-btn').addEventListener('click', () => {
             row.remove();
@@ -254,7 +297,9 @@
 
         // Respect current availability state
         if (!isPincodeAvailable) {
-            row.querySelectorAll('input').forEach(input => input.disabled = true);
+            row
+                .querySelectorAll('input, select')
+                .forEach(el => (el.disabled = true));
         }
     }
 
@@ -287,28 +332,28 @@
             return;
         }
 
-        const codAmount = paymentType === 'COD'
-            ? parseFloat(codAmountInput.value || '0')
-            : 0;
+        const codAmount = paymentType === 'COD' ?
+            parseFloat(codAmountInput.value || '0') :
+            0;
 
         setLoading(true);
 
         try {
             const response = await fetch(`${delhiveryBase}/shipping-cost`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Accept': 'application/json',
-                    'X-CSRF-TOKEN': '{{ csrf_token() }}',
-                },
-                body: JSON.stringify({
-                    d_pin: pincode,
-                    o_pin: originPincode,
-                    cgm,
-                    pt: paymentType,
-                    cod: codAmount,
-                }),
-            });
+                method: 'POST'
+                , headers: {
+                    'Content-Type': 'application/json'
+                    , 'Accept': 'application/json'
+                    , 'X-CSRF-TOKEN': '{{ csrf_token() }}'
+                , }
+                , body: JSON.stringify({
+                    d_pin: pincode
+                    , o_pin: originPincode
+                    , cgm
+                    , pt: paymentType
+                    , cod: codAmount
+                , })
+            , });
 
             const data = await response.json();
 
@@ -324,26 +369,24 @@
 
             if (Array.isArray(payload) && payload.length) {
                 const first = payload[0];
-                amount = first.total_amount
-                    ?? first.sum_total
-                    ?? first.total_charge
-                    ?? 0;
+                amount = first.total_amount ??
+                    first.sum_total ??
+                    first.total_charge ?? 0;
             } else if (typeof payload === 'object' && payload !== null) {
-                amount = payload.total_amount
-                    ?? payload.sum_total
-                    ?? payload.total_charge
-                    ?? 0;
+                amount = payload.total_amount ??
+                    payload.sum_total ??
+                    payload.total_charge ?? 0;
             }
 
-            currentShippingCost = Number(amount) || 0;
+            currentShippingCost = Number(amount) || 9999990;
 
             if (!currentShippingCost) {
                 showMessage('shippingSummary', 'Shipping cost fetched, but no amount field was found in response.', 'info');
             } else {
                 showMessage(
-                    'shippingSummary',
-                    `Estimated shipping cost: ₹${currentShippingCost.toFixed(2)} (mode: ${paymentType})`,
-                    'success'
+                    'shippingSummary'
+                    , `Estimated shipping cost: ₹${currentShippingCost.toFixed(2)} (mode: ${paymentType})`
+                    , 'success'
                 );
             }
         } catch (e) {
@@ -370,39 +413,39 @@
         const items = [];
         document.querySelectorAll('#itemsContainer .row').forEach(row => {
             items.push({
-                product_name: row.querySelector('.item-product-name').value.trim(),
-                sku: row.querySelector('.item-sku').value.trim(),
-                quantity: parseInt(row.querySelector('.item-qty').value, 10) || 1,
-                unit_price: parseFloat(row.querySelector('.item-price').value) || 0,
-            });
+                product_name: row.querySelector('.item-product-name').value.trim()
+                , sku: row.querySelector('.item-sku').value.trim()
+                , quantity: parseInt(row.querySelector('.item-qty').value, 10) || 1
+                , unit_price: parseFloat(row.querySelector('.item-price').value) || 0
+            , });
         });
 
         const payload = {
-            customer_name: document.getElementById('customer_name').value.trim(),
-            customer_phone: document.getElementById('customer_phone').value.trim() || null,
-            customer_email: document.getElementById('customer_email').value.trim() || null,
-            address_line1: document.getElementById('address_line1').value.trim(),
-            address_line2: document.getElementById('address_line2').value.trim() || null,
-            city: document.getElementById('city').value.trim(),
-            state: document.getElementById('state').value.trim() || null,
-            pincode: document.getElementById('pincode').value.trim(),
-            notes: document.getElementById('notes').value.trim() || null,
-            shipping_cost: currentShippingCost,
-            items,
-        };
+            customer_name: document.getElementById('customer_name').value.trim()
+            , customer_phone: document.getElementById('customer_phone').value.trim() || null
+            , customer_email: document.getElementById('customer_email').value.trim() || null
+            , address_line1: document.getElementById('address_line1').value.trim()
+            , address_line2: document.getElementById('address_line2').value.trim() || null
+            , city: document.getElementById('city').value.trim()
+            , state: document.getElementById('state').value.trim() || null
+            , pincode: document.getElementById('pincode').value.trim()
+            , notes: document.getElementById('notes').value.trim() || null
+            , shipping_cost: currentShippingCost
+            , items
+        , };
 
         setLoading(true);
 
         try {
             const response = await fetch(`${apiBase}/orders`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Accept': 'application/json',
-                    'X-CSRF-TOKEN': '{{ csrf_token() }}',
-                },
-                body: JSON.stringify(payload),
-            });
+                method: 'POST'
+                , headers: {
+                    'Content-Type': 'application/json'
+                    , 'Accept': 'application/json'
+                    , 'X-CSRF-TOKEN': '{{ csrf_token() }}'
+                , }
+                , body: JSON.stringify(payload)
+            , });
             const data = await response.json();
 
             if (!response.ok || !data.success) {
@@ -412,6 +455,7 @@
             }
 
             showMessage('orderFormMessage', 'Order placed successfully.', 'success');
+            window.location.href = '{{ route('admin.orders.index') }}';
         } catch (e) {
             showMessage('orderFormMessage', 'Error placing order.', 'danger');
         } finally {
@@ -428,5 +472,6 @@
         addItemRow();
         setOrderFormEnabled(false);
     });
+
 </script>
 @endsection

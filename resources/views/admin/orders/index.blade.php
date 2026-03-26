@@ -32,10 +32,31 @@
             <div id="ordersMessage" class="mt-2"></div>
         </div>
     </div>
+
+    <!-- Order Details Modal -->
+    <div class="modal fade" id="orderDetailsModal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-lg modal-dialog-scrollable">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Order Details</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <div id="orderDetailsContent">
+                        <!-- Filled by JS -->
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                </div>
+            </div>
+        </div>
+    </div>
 </div>
 
 <script>
     const apiBase = '{{ url('/api/admin') }}';
+    const orderShowBase = '{{ url('/admin/orders') }}';
 
     function showMessage(elementId, message, type = 'info') {
         const el = document.getElementById(elementId);
@@ -75,44 +96,22 @@
                     <td><span class="badge bg-${order.status === 'placed' ? 'success' : order.status === 'cancelled' ? 'danger' : 'secondary'} text-uppercase">${order.status}</span></td>
                     <td>${order.total_amount}</td>
                     <td>
-                        <button class="btn btn-sm btn-outline-danger" data-action="cancel" data-id="${order.id}">Cancel</button>
+                        <button class="btn btn-sm btn-outline-primary" data-action="view" data-id="${order.id}" title="View details">
+                            <i class="bi bi-eye"></i>
+                        </button>
                     </td>
                 `;
                 tbody.appendChild(tr);
             });
 
-            tbody.querySelectorAll('button[data-action="cancel"]').forEach(btn => {
-                btn.addEventListener('click', () => cancelOrder(btn.dataset.id));
+            tbody.querySelectorAll('button[data-action="view"]').forEach(btn => {
+                btn.addEventListener('click', () => {
+                    const id = btn.dataset.id;
+                    window.location.href = `${orderShowBase}/${id}`;
+                });
             });
         } catch (e) {
             showMessage('ordersMessage', 'Error loading orders.', 'danger');
-        }
-    }
-
-    async function cancelOrder(id) {
-        if (!confirm('Are you sure you want to cancel this order?')) {
-            return;
-        }
-
-        try {
-            const response = await fetch(`${apiBase}/orders/${id}`, {
-                method: 'DELETE',
-                headers: {
-                    'Accept': 'application/json',
-                    'X-CSRF-TOKEN': '{{ csrf_token() }}',
-                },
-            });
-            const data = await response.json();
-
-            if (!response.ok || !data.success) {
-                showMessage('ordersMessage', data.message || 'Failed to cancel order.', 'danger');
-                return;
-            }
-
-            showMessage('ordersMessage', 'Order cancelled.', 'success');
-            loadOrders();
-        } catch (e) {
-            showMessage('ordersMessage', 'Error cancelling order.', 'danger');
         }
     }
 
