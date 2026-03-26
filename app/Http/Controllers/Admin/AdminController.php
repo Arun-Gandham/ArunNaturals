@@ -5,9 +5,11 @@ namespace App\Http\Controllers\Admin;
 use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
 use App\Models\Order;
+use App\Models\OrderItem;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
+use Illuminate\Support\Facades\DB;
 
 class AdminController extends Controller
 {
@@ -54,6 +56,63 @@ class AdminController extends Controller
     {
         $users = \App\Models\User::all();
         return view('admin.users.index', compact('users'));
+    }
+
+    public function dashboard()
+    {
+        $totalOrders = Order::count();
+
+        $totalRevenue = Order::where('status', '!=', 'cancelled')
+            ->sum('total_amount');
+
+        $statusBreakdown = Order::select('status', DB::raw('count(*) as count'))
+            ->groupBy('status')
+            ->pluck('count', 'status');
+
+        $topProducts = OrderItem::select(
+                'product_name',
+                DB::raw('COUNT(DISTINCT order_id) as orders_count'),
+                DB::raw('SUM(quantity) as total_quantity'),
+                DB::raw('SUM(line_total) as revenue')
+            )
+            ->groupBy('product_name')
+            ->orderByDesc('orders_count')
+            ->limit(5)
+            ->get();
+
+        $shipmentsTotal = Order::whereNotNull('delhivery_waybill')->count();
+        $shipmentsPlaced = Order::whereNotNull('delhivery_waybill')
+            ->where('status', 'placed')
+            ->count();
+        $shipmentSuccessRate = $shipmentsTotal > 0
+            ? round(($shipmentsPlaced / $shipmentsTotal) * 100, 1)
+            : null;
+
+        $dailyRevenue = Order::where('status', '!=', 'cancelled')
+            ->select(
+                DB::raw('DATE(created_at) as date'),
+                DB::raw('SUM(total_amount) as total')
+            )
+            ->groupBy(DB::raw('DATE(created_at)'))
+            ->orderByDesc('date')
+            ->limit(7)
+            ->get();
+
+        $recentOrders = Order::latest()
+            ->limit(5)
+            ->get(['order_number', 'customer_name', 'status', 'total_amount', 'created_at']);
+
+        return view('admin.dashboard', compact(
+            'totalOrders',
+            'totalRevenue',
+            'statusBreakdown',
+            'topProducts',
+            'shipmentsTotal',
+            'shipmentsPlaced',
+            'shipmentSuccessRate',
+            'dailyRevenue',
+            'recentOrders'
+        ));
     }
 
     public function orders()

@@ -4,6 +4,7 @@ use Illuminate\Support\Facades\Route;
 use Illuminate\Support\Facades\Auth;
 use App\Http\Controllers\ProductController;
 use App\Http\Controllers\Admin\ProductController as AdminProductController;
+use App\Http\Controllers\Admin\AdminController;
 // Enable Laravel auth routes (login, register, etc.)
 Auth::routes();
 
@@ -24,9 +25,9 @@ Route::get('/', function () {
 
 Route::get('/products/{slug}', [ProductController::class, 'show'])->name('products.show');
 
-use App\Http\Controllers\Admin\AdminController;
-
 Route::middleware(['auth', 'admin'])->prefix('admin')->name('admin.')->group(function () {
+    Route::get('/dashboard', [AdminController::class, 'dashboard'])->name('dashboard');
+
     Route::get('/users', [AdminController::class, 'users'])->name('users.index');
     Route::post('/users/create', [AdminController::class, 'createUser'])->name('users.create');
     Route::patch('/users/{id}/role', [AdminController::class, 'updateUserRole'])->name('users.updateRole');

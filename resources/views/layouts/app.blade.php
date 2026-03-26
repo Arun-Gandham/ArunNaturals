@@ -15,58 +15,301 @@
 
     <!-- Scripts -->
     @vite(['resources/css/app.css', 'resources/js/app.js'])
+
+    <!-- Font Awesome for modern sidebar icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" integrity="sha512-DTOQO9RWCH3ppGqcWaEA1BIZOC6xxalwEsw9c2QQeAIftl+Vegovlnee1c9QX4TctnWMn13TZye+giMm8e2LwA==" crossorigin="anonymous" referrerpolicy="no-referrer" />
+
+    <style>
+        body {
+            background-color: #f3f4f6;
+        }
+
+        #app {
+            min-height: 100vh;
+        }
+
+        .sidebar {
+            background: #0f172a;
+            color: #e5e7eb;
+            border-radius: 0 24px 24px 0;
+            box-shadow: 4px 0 24px rgba(15, 23, 42, 0.45);
+            position: fixed;
+            top: 0;
+            left: 0;
+            bottom: 0;
+            width: 260px;
+            z-index: 1040;
+        }
+
+        .main-layout {
+            margin-left: 260px;
+            min-height: 100vh;
+            padding-top: 72px; /* space for fixed header */
+        }
+
+        .sidebar-brand-title {
+            font-weight: 800;
+            letter-spacing: 0.03em;
+            font-size: 1.1rem;
+        }
+
+        .sidebar-nav .sidebar-link {
+            border-radius: 999px;
+            padding: 0.55rem 0.9rem;
+            color: #cbd5f5;
+            display: flex;
+            align-items: center;
+            gap: 0.65rem;
+            font-size: 0.95rem;
+            transition: background-color 0.15s ease, color 0.15s ease, transform 0.05s ease;
+        }
+
+        .sidebar-nav .sidebar-link .sidebar-icon {
+            width: 1.75rem;
+            height: 1.75rem;
+            border-radius: 999px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            background: rgba(148, 163, 184, 0.18);
+            color: #e5e7eb;
+            font-size: 1rem;
+        }
+
+        .sidebar-nav .sidebar-link:hover {
+            text-decoration: none;
+            background: rgba(248, 250, 252, 0.06);
+            transform: translateX(2px);
+        }
+
+        .sidebar-nav .sidebar-link.active {
+            background: #f9fafb;
+            color: #0f172a;
+        }
+
+        .sidebar-nav .sidebar-link.active .sidebar-icon {
+            background: #0f172a;
+            color: #f9fafb;
+        }
+
+        .sidebar-section-label {
+            font-size: 0.75rem;
+            text-transform: uppercase;
+            letter-spacing: 0.12em;
+            color: #6b7280;
+            margin-bottom: 0.5rem;
+        }
+
+        .sidebar-divider {
+            border-top: 1px solid rgba(148, 163, 184, 0.35);
+            margin: 1rem 0;
+        }
+
+        .app-header {
+            background: rgba(249, 250, 251, 0.9);
+            backdrop-filter: blur(10px);
+            border-bottom: 1px solid rgba(209, 213, 219, 0.6);
+            position: fixed;
+            top: 0;
+            left: 260px;
+            right: 0;
+            z-index: 1030;
+        }
+
+        .app-header-inner {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        .app-header-search {
+            background: #e5e7eb;
+            border-radius: 999px;
+            padding: 0.25rem 0.75rem;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            flex: 1;
+        }
+
+        .app-header-search input {
+            border: none;
+            background: transparent;
+            outline: none;
+            font-size: 0.9rem;
+        }
+
+        .app-header-search i {
+            color: #6b7280;
+        }
+
+        .app-header-actions .icon-btn {
+            width: 36px;
+            height: 36px;
+            border-radius: 999px;
+            border: none;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            background: #e5e7eb;
+            color: #4b5563;
+            margin-right: 0.35rem;
+        }
+
+        .app-header-actions .icon-btn:hover {
+            background: #d1d5db;
+        }
+    </style>
 </head>
 <body>
-    <div id="app" class="d-flex" style="min-height: 100vh;">
+    <div id="app">
         <!-- Sidebar -->
-        <nav class="sidebar bg-dark text-white p-3" style="width: 240px; min-height: 100vh;">
-            <div class="mb-4 text-center">
-                <a href="/" class="d-block mb-2">
-                    <img src="https://ui-avatars.com/api/?name=Arun+Naturals&background=0D8ABC&color=fff" alt="Logo" style="width: 60px; height: 60px; border-radius: 50%;">
+        <nav class="sidebar text-white p-3">
+            <div class="mb-4 px-1 d-flex align-items-center gap-2">
+                <a href="/" class="d-inline-flex align-items-center justify-content-center bg-white" style="width: 40px; height: 40px; border-radius: 14px;">
+                    <img src="https://ui-avatars.com/api/?name=AN&background=0D8ABC&color=fff" alt="Logo" style="width: 28px; height: 28px; border-radius: 10px;">
                 </a>
-                <h4 style="font-weight: bold;">Arun Naturals</h4>
+                <div>
+                    <div class="sidebar-brand-title">Arun Naturals</div>
+                    <small class="text-muted" style="font-size: 0.75rem;">Admin Console</small>
+                </div>
             </div>
-            <ul class="nav flex-column">
-                <li class="nav-item mb-2"><a href="{{ route('admin.orders.index') }}" class="nav-link text-white">Orders</a></li>
-                <li class="nav-item mb-2"><a href="{{ route('admin.users.index') }}" class="nav-link text-white">Users</a></li>
-                <li class="nav-item mb-2"><a href="{{ route('admin.insights') }}" class="nav-link text-white">Insights</a></li>
-                <li class="nav-item mb-2"><a class="nav-link text-white" href="{{ route('admin.products.index') }}">Products</a></li>
 
-                <li class="nav-item mb-2">
-                    <div class="dropdown">
-                        <a class="nav-link text-white dropdown-toggle" href="#" id="deliveryDropdown" data-bs-toggle="dropdown" aria-expanded="false">Delivery</a>
-                        <ul class="dropdown-menu bg-dark" aria-labelledby="deliveryDropdown">
-                            <li><a class="dropdown-item text-white bg-dark" href="#">Create</a></li>
-                            <li><a class="dropdown-item text-white bg-dark" href="#">Update</a></li>
-                            <li><a class="dropdown-item text-white bg-dark" href="#">Cancel</a></li>
-                            <li><a class="dropdown-item text-white bg-dark" href="#">Pickup</a></li>
-                        </ul>
-                    </div>
+            <div class="sidebar-divider"></div>
+
+            <div class="sidebar-section-label px-1">Main</div>
+            <ul class="nav flex-column sidebar-nav mb-3">
+                <li class="nav-item mb-1">
+                    <a href="{{ route('admin.dashboard') }}"
+                       class="nav-link sidebar-link {{ request()->routeIs('admin.dashboard') ? 'active' : '' }}">
+                        <span class="sidebar-icon">
+                            <i class="fa-solid fa-table-columns"></i>
+                        </span>
+                        <span>Dashboard</span>
+                    </a>
+                </li>
+                <li class="nav-item mb-1">
+                    <a href="{{ route('admin.orders.index') }}"
+                       class="nav-link sidebar-link {{ request()->routeIs('admin.orders.*') ? 'active' : '' }}">
+                        <span class="sidebar-icon">
+                            <i class="fa-solid fa-bag-shopping"></i>
+                        </span>
+                        <span>Orders</span>
+                    </a>
+                </li>
+                <li class="nav-item mb-1">
+                    <a href="{{ route('admin.products.index') }}"
+                       class="nav-link sidebar-link {{ request()->routeIs('admin.products.*') ? 'active' : '' }}">
+                        <span class="sidebar-icon">
+                            <i class="fa-solid fa-box-open"></i>
+                        </span>
+                        <span>Products</span>
+                    </a>
+                </li>
+                <li class="nav-item mb-1">
+                    <a href="{{ route('admin.users.index') }}"
+                       class="nav-link sidebar-link {{ request()->routeIs('admin.users.*') ? 'active' : '' }}">
+                        <span class="sidebar-icon">
+                            <i class="fa-solid fa-users"></i>
+                        </span>
+                        <span>Users</span>
+                    </a>
+                </li>
+                <li class="nav-item mb-1">
+                    <a href="{{ route('admin.insights') }}"
+                       class="nav-link sidebar-link {{ request()->routeIs('admin.insights') ? 'active' : '' }}">
+                        <span class="sidebar-icon">
+                            <i class="fa-solid fa-chart-line"></i>
+                        </span>
+                        <span>Insights</span>
+                    </a>
+                </li>
+            </ul>
+
+            <div class="sidebar-section-label px-1">Delivery</div>
+            <ul class="nav flex-column sidebar-nav">
+                <li class="nav-item mb-1">
+                    <a href="#"
+                       class="nav-link sidebar-link">
+                        <span class="sidebar-icon">
+                            <i class="fa-solid fa-truck"></i>
+                        </span>
+                        <span>Shipments</span>
+                    </a>
+                </li>
+                <li class="nav-item mb-1">
+                    <a href="#"
+                       class="nav-link sidebar-link">
+                        <span class="sidebar-icon">
+                            <i class="fa-solid fa-truck-ramp-box"></i>
+                        </span>
+                        <span>Pickups</span>
+                    </a>
+                </li>
+                <li class="nav-item mb-1">
+                    <a href="#"
+                       class="nav-link sidebar-link">
+                        <span class="sidebar-icon">
+                            <i class="fa-solid fa-location-dot"></i>
+                        </span>
+                        <span>Serviceability</span>
+                    </a>
                 </li>
             </ul>
         </nav>
 
         <!-- Main Content -->
-        <div class="flex-grow-1 d-flex flex-column">
+        <div class="main-layout d-flex flex-column">
             <!-- Header -->
-            <header class="bg-white shadow-sm p-3 d-flex align-items-center justify-content-between">
-                <form class="d-flex" style="max-width: 400px; width: 100%;">
-                    <input class="form-control me-2" type="search" placeholder="Search..." aria-label="Search">
-                    <button class="btn btn-outline-primary" type="submit">Search</button>
-                </form>
-                <div>
-                    @guest
-                    @if (Route::has('login'))
-                    <a class="btn btn-outline-secondary me-2" href="{{ route('login') }}">Login</a>
-                    @endif
-                    @if (Route::has('register'))
-                    <a class="btn btn-primary" href="{{ route('register') }}">Register</a>
-                    @endif
-                    @else
-                    <span class="me-3">{{ Auth::user()->name }}</span>
-                    <a class="btn btn-outline-danger" href="{{ route('logout') }}" onclick="event.preventDefault(); document.getElementById('logout-form').submit();">Logout</a>
-                    <form id="logout-form" action="{{ route('logout') }}" method="POST" class="d-none">@csrf</form>
-                    @endguest
+            <header class="app-header py-3 px-4">
+                <div class="app-header-inner d-flex align-items-center justify-content-between gap-3">
+                    <div class="app-header-search">
+                        <i class="fa-solid fa-magnifying-glass"></i>
+                        <input type="search" placeholder="Search orders, products, users..." aria-label="Search">
+                    </div>
+                    <div class="d-flex align-items-center gap-2 app-header-actions">
+                        <button type="button" class="icon-btn" title="Notifications">
+                            <i class="fa-regular fa-bell"></i>
+                        </button>
+                        <button type="button" class="icon-btn" title="Help">
+                            <i class="fa-regular fa-circle-question"></i>
+                        </button>
+                        <div class="dropdown">
+                            @guest
+                                @if (Route::has('login'))
+                                    <a class="btn btn-sm btn-outline-secondary me-2" href="{{ route('login') }}">Login</a>
+                                @endif
+                                @if (Route::has('register'))
+                                    <a class="btn btn-sm btn-primary" href="{{ route('register') }}">Register</a>
+                                @endif
+                            @else
+                                <button class="btn btn-sm btn-light d-flex align-items-center gap-2" type="button" id="userMenuButton" data-bs-toggle="dropdown" aria-expanded="false">
+                                    <span class="rounded-circle bg-primary text-white d-inline-flex align-items-center justify-content-center" style="width: 28px; height: 28px; font-size: 0.8rem;">
+                                        {{ strtoupper(substr(Auth::user()->name, 0, 1)) }}
+                                    </span>
+                                    <span style="font-size: 0.9rem;">{{ Auth::user()->name }}</span>
+                                    <i class="fa-solid fa-chevron-down" style="font-size: 0.65rem;"></i>
+                                </button>
+                                <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="userMenuButton">
+                                    <li class="px-3 py-2 small text-muted">{{ Auth::user()->email }}</li>
+                                    <li><hr class="dropdown-divider"></li>
+                                    @if (Route::has('profile.show'))
+                                        <li>
+                                            <a class="dropdown-item" href="{{ route('profile.show') }}">
+                                                <i class="fa-regular fa-user me-1"></i> Profile
+                                            </a>
+                                        </li>
+                                    @endif
+                                    <li><hr class="dropdown-divider"></li>
+                                    <li>
+                                        <a class="dropdown-item text-danger" href="{{ route('logout') }}" onclick="event.preventDefault(); document.getElementById('logout-form').submit();">
+                                            <i class="fa-solid fa-arrow-right-from-bracket me-1"></i> Logout
+                                        </a>
+                                    </li>
+                                </ul>
+                                <form id="logout-form" action="{{ route('logout') }}" method="POST" class="d-none">@csrf</form>
+                            @endguest
+                        </div>
+                    </div>
                 </div>
             </header>
             <main class="flex-grow-1 p-4">
@@ -74,5 +317,26 @@
             </main>
         </div>
     </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function () {
+            const userMenuButton = document.getElementById('userMenuButton');
+            const userMenu = document.querySelector('.dropdown-menu[aria-labelledby="userMenuButton"]');
+
+            if (!userMenuButton || !userMenu) {
+                return;
+            }
+
+            userMenuButton.addEventListener('click', function (event) {
+                event.preventDefault();
+                event.stopPropagation();
+                userMenu.classList.toggle('show');
+            });
+
+            document.addEventListener('click', function () {
+                userMenu.classList.remove('show');
+            });
+        });
+    </script>
 </body>
 </html>
