@@ -28,6 +28,9 @@ Route::get('/products/{slug}', [ProductController::class, 'show'])->name('produc
 Route::middleware(['auth', 'admin'])->prefix('admin')->name('admin.')->group(function () {
     Route::get('/dashboard', [AdminController::class, 'dashboard'])->name('dashboard');
 
+    Route::get('/settings', [AdminController::class, 'settings'])->name('settings.edit');
+    Route::post('/settings', [AdminController::class, 'settingsUpdate'])->name('settings.update');
+
     Route::get('/users', [AdminController::class, 'users'])->name('users.index');
     Route::post('/users/create', [AdminController::class, 'createUser'])->name('users.create');
     Route::patch('/users/{id}/role', [AdminController::class, 'updateUserRole'])->name('users.updateRole');

@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
 use App\Models\Order;
 use App\Models\OrderItem;
+use App\Models\SiteSetting;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
@@ -113,6 +114,43 @@ class AdminController extends Controller
             'dailyRevenue',
             'recentOrders'
         ));
+    }
+
+    public function settings()
+    {
+        $settings = SiteSetting::first();
+
+        return view('admin.settings', compact('settings'));
+    }
+
+    public function settingsUpdate(Request $request)
+    {
+        $data = $request->validate([
+            'site_name'        => ['required', 'string', 'max:255'],
+            'tagline'          => ['nullable', 'string', 'max:255'],
+            'meta_title'       => ['nullable', 'string', 'max:255'],
+            'meta_description' => ['nullable', 'string'],
+            'meta_keywords'    => ['nullable', 'string'],
+            'favicon_url'      => ['nullable', 'string', 'max:255'],
+            'logo_url'         => ['nullable', 'string', 'max:255'],
+            'facebook_url'     => ['nullable', 'string', 'max:255'],
+            'instagram_url'    => ['nullable', 'string', 'max:255'],
+            'twitter_url'      => ['nullable', 'string', 'max:255'],
+        ]);
+
+        $settings = SiteSetting::first();
+
+        if (! $settings) {
+            $settings = SiteSetting::create($data);
+        } else {
+            $settings->update($data);
+        }
+
+        cache()->forget('site_settings');
+
+        return redirect()
+            ->route('admin.settings.edit')
+            ->with('success', 'Settings updated successfully.');
     }
 
     public function orders()

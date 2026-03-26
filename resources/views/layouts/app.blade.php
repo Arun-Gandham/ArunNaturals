@@ -7,7 +7,25 @@
     <!-- CSRF Token -->
     <meta name="csrf-token" content="{{ csrf_token() }}">
 
-    <title>{{ config('app.name', 'Laravel') }}</title>
+    @php
+        $appName = optional($siteSettings ?? null)->site_name ?? config('app.name', 'Laravel');
+        $metaTitle = trim($__metaTitle ?? (optional($siteSettings ?? null)->meta_title ?? $appName));
+        $metaDescription = trim($__metaDescription ?? (optional($siteSettings ?? null)->meta_description ?? ''));
+        $metaKeywords = trim($__metaKeywords ?? (optional($siteSettings ?? null)->meta_keywords ?? ''));
+    @endphp
+
+    <title>{{ $metaTitle }}</title>
+    <meta name="description" content="{{ $metaDescription }}">
+    @if($metaKeywords)
+        <meta name="keywords" content="{{ $metaKeywords }}">
+    @endif
+
+    <meta property="og:title" content="{{ $metaTitle }}">
+    <meta property="og:description" content="{{ $metaDescription }}">
+    <meta property="og:type" content="website">
+    <meta property="og:site_name" content="{{ $appName }}">
+
+    <link rel="icon" type="image/x-icon" href="{{ optional($siteSettings ?? null)->favicon_url ? url(optional($siteSettings ?? null)->favicon_url) : asset('favicon.ico') }}">
 
     <!-- Fonts -->
     <link rel="dns-prefetch" href="//fonts.bunny.net">
@@ -164,12 +182,16 @@
     <div id="app">
         <!-- Sidebar -->
         <nav class="sidebar text-white p-3">
-            <div class="mb-4 px-1 d-flex align-items-center gap-2">
+            <div class="mb-4 px-1 d-flex flex-column align-items-center text-center gap-2">
                 <a href="/" class="d-inline-flex align-items-center justify-content-center bg-white" style="width: 40px; height: 40px; border-radius: 14px;">
-                    <img src="https://ui-avatars.com/api/?name=AN&background=0D8ABC&color=fff" alt="Logo" style="width: 28px; height: 28px; border-radius: 10px;">
+                    @if(optional($siteSettings ?? null)->logo_url)
+                        <img src="{{ url(optional($siteSettings ?? null)->logo_url) }}" alt="Logo" style="width: 28px; height: 28px; border-radius: 10px;">
+                    @else
+                        <img src="https://ui-avatars.com/api/?name=AN&background=0D8ABC&color=fff" alt="Logo" style="width: 28px; height: 28px; border-radius: 10px;">
+                    @endif
                 </a>
                 <div>
-                    <div class="sidebar-brand-title">Arun Naturals</div>
+                    <div class="sidebar-brand-title">{{ $appName }}</div>
                     <small class="text-muted" style="font-size: 0.75rem;">Admin Console</small>
                 </div>
             </div>
@@ -252,6 +274,15 @@
                             <i class="fa-solid fa-location-dot"></i>
                         </span>
                         <span>Serviceability</span>
+                    </a>
+                </li>
+                <li class="nav-item mb-1 mt-2">
+                    <a href="{{ route('admin.settings.edit') }}"
+                       class="nav-link sidebar-link {{ request()->routeIs('admin.settings.*') ? 'active' : '' }}">
+                        <span class="sidebar-icon">
+                            <i class="fa-solid fa-gear"></i>
+                        </span>
+                        <span>Settings</span>
                     </a>
                 </li>
             </ul>
