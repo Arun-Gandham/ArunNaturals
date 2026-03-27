@@ -29,5 +29,9 @@ class Product extends Model
         'is_active' => 'boolean',
         'price' => 'decimal:2',
     ];
-}
 
+    public function categories()
+    {
+        return $this->belongsToMany(Category::class)->withTimestamps();
+    }
+}

@@ -69,6 +69,23 @@
         <textarea name="highlights" class="form-control" rows="3">{{ old('highlights', $product->highlights) }}</textarea>
     </div>
 
+    @isset($categories)
+        <div class="col-12">
+            <label class="form-label">Categories</label>
+            @php
+                $selected = old('category_ids', $selectedCategories ?? []);
+            @endphp
+            <select name="category_ids[]" class="form-select" multiple size="4">
+                @foreach($categories as $category)
+                    <option value="{{ $category->id }}" {{ in_array($category->id, $selected, true) ? 'selected' : '' }}>
+                        {{ $category->name }}
+                    </option>
+                @endforeach
+            </select>
+            <div class="form-text">Hold Ctrl / Cmd to select multiple categories.</div>
+        </div>
+    @endisset
+
     <div class="col-12">
         <div class="form-check">
             <input class="form-check-input" type="checkbox" name="is_active" id="is_active"

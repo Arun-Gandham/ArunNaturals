@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
 use App\Models\Product;
+use App\Models\Category;
 use Illuminate\Http\Request;
 
 class ProductController extends Controller
@@ -18,8 +19,9 @@ class ProductController extends Controller
     public function create()
     {
         $product = new Product();
+        $categories = Category::orderBy('name')->get();
 
-        return view('admin.products.create', compact('product'));
+        return view('admin.products.create', compact('product', 'categories'));
     }
 
     public function store(Request $request)
@@ -31,7 +33,9 @@ class ProductController extends Controller
             $data['main_image_path'] = 'storage/' . $path;
         }
 
-        Product::create($data);
+        $product = Product::create($data);
+
+        $product->categories()->sync($request->input('category_ids', []));
 
         return redirect()
             ->route('admin.products.index')
@@ -40,7 +44,10 @@ class ProductController extends Controller
 
     public function edit(Product $product)
     {
-        return view('admin.products.edit', compact('product'));
+        $categories = Category::orderBy('name')->get();
+        $selectedCategories = $product->categories()->allRelatedIds()->all();
+
+        return view('admin.products.edit', compact('product', 'categories', 'selectedCategories'));
     }
 
     public function update(Request $request, Product $product)
@@ -53,6 +60,8 @@ class ProductController extends Controller
         }
 
         $product->update($data);
+
+        $product->categories()->sync($request->input('category_ids', []));
 
         return redirect()
             ->route('admin.products.index')
@@ -92,6 +101,8 @@ class ProductController extends Controller
             'stock' => ['required', 'integer', 'min:0'],
             'main_image' => ['sometimes', 'nullable', 'image', 'max:2048'],
             'is_active' => ['sometimes', 'boolean'],
+            'category_ids' => ['sometimes', 'array'],
+            'category_ids.*' => ['integer', 'exists:categories,id'],
         ]);
     }
 }
