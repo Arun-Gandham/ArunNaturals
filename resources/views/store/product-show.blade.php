@@ -62,7 +62,7 @@
             <div class="card card-soft border-0 p-4 p-md-5">
                 <div class="ratio ratio-4x3 mb-3 rounded-4 overflow-hidden bg-light">
                     @if (!empty($product['image']))
-                        <img src="{{ $product['image'] }}" alt="{{ $product['name'] ?? '' }}" class="w-100 h-100" style="object-fit: cover;">
+                        <img id="mainProductImage" src="{{ $product['image'] }}" alt="{{ $product['name'] ?? '' }}" class="w-100 h-100" style="object-fit: cover;">
                     @else
                         <div class="w-100 h-100 d-flex align-items-center justify-content-center text-muted">
                             Product image coming soon
@@ -72,6 +72,24 @@
                 <p class="mb-0 text-muted" style="font-size: 0.85rem;">
                     Every batch is blended with care. Colour and aroma may vary slightly as we avoid artificial stabilisers.
                 </p>
+
+                @if (!empty($galleryImages))
+                    <div class="mt-3">
+                        <div class="section-label mb-2">More views</div>
+                        <div class="d-flex gap-2 overflow-auto pb-1">
+                            @foreach ($galleryImages as $galleryImage)
+                                <button type="button"
+                                        class="btn p-0 border-0 bg-transparent gallery-thumb-btn"
+                                        data-image="{{ $galleryImage }}">
+                                    <img src="{{ $galleryImage }}"
+                                         alt="Product angle"
+                                         class="rounded border"
+                                         style="width: 72px; height: 72px; object-fit: cover;">
+                                </button>
+                            @endforeach
+                        </div>
+                    </div>
+                @endif
             </div>
         </div>
     </div>
@@ -149,5 +167,20 @@
         </div>
     </div>
 </div>
-@endsection
 
+<script>
+    document.addEventListener('DOMContentLoaded', function () {
+        var mainImg = document.getElementById('mainProductImage');
+        if (!mainImg) return;
+
+        document.querySelectorAll('.gallery-thumb-btn').forEach(function (btn) {
+            btn.addEventListener('click', function () {
+                var src = this.getAttribute('data-image');
+                if (src) {
+                    mainImg.src = src;
+                }
+            });
+        });
+    });
+</script>
+@endsection

@@ -33,9 +33,20 @@ class ProductController extends Controller
             ? preg_split('/\r\n|\r|\n/', trim($product->highlights))
             : [];
 
-        $galleryImages = $product->images
-            ? $product->images->pluck('image_path')->map(fn ($p) => asset($p))->all()
-            : [];
+        // Build gallery: start with main image, then additional images, avoiding duplicates
+        $galleryImages = [];
+        if ($imageUrl) {
+            $galleryImages[] = $imageUrl;
+        }
+
+        if ($product->images) {
+            foreach ($product->images as $img) {
+                $url = asset($img->image_path);
+                if (!in_array($url, $galleryImages, true)) {
+                    $galleryImages[] = $url;
+                }
+            }
+        }
 
         $viewProduct = [
             'name'              => $product->name,
