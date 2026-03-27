@@ -108,6 +108,9 @@
                                     </td>
                                     <td>{{ $product->created_at?->format('d M Y') }}</td>
                                     <td class="text-end">
+                                        <a href="{{ route('products.show', $product->slug) }}" class="btn btn-sm btn-outline-primary" title="View product page" target="_blank">
+                                            <i class="fa-regular fa-eye"></i>
+                                        </a>
                                         <a href="{{ route('admin.products.edit', $product) }}" class="btn btn-sm btn-outline-secondary" title="Edit product">
                                             <i class="fa-regular fa-pen-to-square"></i>
                                         </a>

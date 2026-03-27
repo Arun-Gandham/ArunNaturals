@@ -45,6 +45,29 @@
         </div>
     </div>
 
+    <div class="col-md-6">
+        <label class="form-label">Gallery Images (optional)</label>
+        @if ($product->exists && $product->images && $product->images->count())
+            <div class="mb-2 d-flex flex-wrap gap-2">
+                @foreach($product->images as $img)
+                    <div class="position-relative">
+                        <img src="{{ asset($img->image_path) }}" alt="Gallery image" class="img-thumbnail" style="width: 72px; height: 72px; object-fit: cover;">
+                        <form action="{{ route('admin.products.images.destroy', $img) }}" method="POST" class="position-absolute" style="top: 2px; right: 2px;">
+                            @csrf
+                            @method('DELETE')
+                            <button type="submit" class="btn btn-sm btn-danger py-0 px-1" onclick="return confirm('Remove this image?')" title="Remove image">
+                                <i class="fa-solid fa-xmark"></i>
+                            </button>
+                        </form>
+                    </div>
+                @endforeach
+            </div>
+        @endif
+        <input type="file" name="gallery_images[]" id="gallery_images" class="form-control" accept="image/*" multiple>
+        <div class="form-text">Upload one or more extra images (max 2 MB each) to show different angles.</div>
+        <div id="gallery_preview" class="mt-2 d-flex flex-wrap gap-2"></div>
+    </div>
+
     <div class="col-12">
         <label class="form-label">Short Description</label>
         <textarea name="short_description" class="form-control" rows="2">{{ old('short_description', $product->short_description) }}</textarea>

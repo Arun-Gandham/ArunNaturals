@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Admin;
 use App\Http\Controllers\Controller;
 use App\Models\Product;
 use App\Models\Category;
+use App\Models\ProductImage;
 use Illuminate\Http\Request;
 
 class ProductController extends Controller
@@ -37,6 +38,20 @@ class ProductController extends Controller
 
         $product->categories()->sync($request->input('category_ids', []));
 
+        if ($request->hasFile('gallery_images')) {
+            foreach ($request->file('gallery_images') as $index => $file) {
+                if (! $file || ! $file->isValid()) {
+                    continue;
+                }
+
+                $path = $file->store('products/gallery', 'public');
+                $product->images()->create([
+                    'image_path' => 'storage/' . $path,
+                    'sort_order' => $index,
+                ]);
+            }
+        }
+
         return redirect()
             ->route('admin.products.index')
             ->with('success', 'Product created successfully.');
@@ -44,6 +59,7 @@ class ProductController extends Controller
 
     public function edit(Product $product)
     {
+        $product->load('images');
         $categories = Category::orderBy('name')->get();
         $selectedCategories = $product->categories()->allRelatedIds()->all();
 
@@ -63,6 +79,23 @@ class ProductController extends Controller
 
         $product->categories()->sync($request->input('category_ids', []));
 
+        // If new gallery images are uploaded, replace the existing gallery for this product
+        if ($request->hasFile('gallery_images')) {
+            $product->images()->delete();
+
+            foreach ($request->file('gallery_images') as $index => $file) {
+                if (! $file || ! $file->isValid()) {
+                    continue;
+                }
+
+                $path = $file->store('products/gallery', 'public');
+                $product->images()->create([
+                    'image_path' => 'storage/' . $path,
+                    'sort_order' => $index,
+                ]);
+            }
+        }
+
         return redirect()
             ->route('admin.products.index')
             ->with('success', 'Product updated successfully.');
@@ -75,6 +108,16 @@ class ProductController extends Controller
         return redirect()
             ->route('admin.products.index')
             ->with('success', 'Product deleted successfully.');
+    }
+
+    public function destroyImage(ProductImage $image)
+    {
+        $productId = $image->product_id;
+        $image->delete();
+
+        return redirect()
+            ->route('admin.products.edit', $productId)
+            ->with('success', 'Gallery image removed.');
     }
 
     protected function validateData(Request $request, ?int $productId = null): array
@@ -103,6 +146,8 @@ class ProductController extends Controller
             'is_active' => ['sometimes', 'boolean'],
             'category_ids' => ['sometimes', 'array'],
             'category_ids.*' => ['integer', 'exists:categories,id'],
+            'gallery_images' => ['sometimes', 'array'],
+            'gallery_images.*' => ['sometimes', 'image', 'max:2048'],
         ]);
     }
 }
