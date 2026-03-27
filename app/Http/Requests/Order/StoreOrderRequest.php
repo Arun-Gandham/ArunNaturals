@@ -28,6 +28,7 @@ class StoreOrderRequest extends FormRequest
             'box_width'       => ['nullable', 'integer', 'min:1'],
             'box_height'      => ['nullable', 'integer', 'min:1'],
             'shipping_cost'   => ['nullable', 'numeric', 'min:0'],
+            'estimated_delivery_date' => ['nullable', 'date'],
             'items'           => ['required', 'array', 'min:1'],
             'items.*.product_name' => ['required', 'string', 'max:255'],
             'items.*.sku'          => ['nullable', 'string', 'max:100'],

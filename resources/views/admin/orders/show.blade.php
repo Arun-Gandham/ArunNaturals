@@ -87,6 +87,9 @@
                 </span>
                 <div class="btn-group btn-group-sm" role="group" aria-label="Order actions">
                     @if($order->delhivery_waybill)
+                        <button type="button" class="btn btn-outline-primary" id="trackOrderBtn" title="Track shipment">
+                            <i class="fa-solid fa-location-arrow"></i>
+                        </button>
                         <a href="{{ route('admin.orders.label', $order) }}" class="btn btn-outline-secondary" title="Download label">
                             <i class="fa-solid fa-print"></i>
                         </a>
@@ -228,6 +231,23 @@
         </div>
     </div>
 
+    @if($order->delhivery_waybill)
+        <div class="card mb-3">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h6 class="mb-0 d-flex align-items-center gap-2">
+                    <i class="fa-solid fa-route"></i>
+                    Shipment Tracking
+                </h6>
+                <small class="text-muted">Waybill: {{ $order->delhivery_waybill }}</small>
+            </div>
+            <div class="card-body">
+                <div id="trackingMessage" class="small text-muted mb-2"></div>
+                <div id="trackingEta" class="small fw-semibold mb-2"></div>
+                <div id="trackingTimeline" class="small"></div>
+            </div>
+        </div>
+    @endif
+
     <div class="card mb-3">
         <div class="card-header">
             <h5 class="mb-0">Order Items</h5>
@@ -284,6 +304,7 @@
 
     document.addEventListener('DOMContentLoaded', () => {
         const updateShippingBtn = document.getElementById('updateShippingBtn');
+        const trackOrderBtn = document.getElementById('trackOrderBtn');
         const createPickupBtn = document.getElementById('createPickupBtn');
         const cancelOrderBtn = document.getElementById('cancelOrderBtn');
         const shippingEditContainer = document.getElementById('shippingEditContainer');
@@ -308,11 +329,122 @@
         const addrState = document.getElementById('addrState');
         const addrPincode = document.getElementById('addrPincode');
         const addrNotes = document.getElementById('addrNotes');
+        const trackingMessage = document.getElementById('trackingMessage');
+        const trackingEta = document.getElementById('trackingEta');
+        const trackingTimeline = document.getElementById('trackingTimeline');
+
+        async function trackShipment() {
+            if (!delhiveryWaybill) {
+                if (trackingMessage) {
+                    trackingMessage.textContent = 'No Delhivery waybill available for this order.';
+                }
+                return;
+            }
+
+            if (trackingMessage) {
+                trackingMessage.textContent = 'Fetching latest tracking details...';
+            }
+            if (trackingEta) trackingEta.textContent = '';
+            if (trackingTimeline) trackingTimeline.innerHTML = '';
+
+            try {
+                const response = await fetch(`${delhiveryApiBase}/track`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Accept': 'application/json',
+                        'X-CSRF-TOKEN': '{{ csrf_token() }}',
+                    },
+                    body: JSON.stringify({ waybill: delhiveryWaybill }),
+                });
+
+                const data = await response.json();
+
+                if (!response.ok || !data.success) {
+                    if (trackingMessage) {
+                        trackingMessage.textContent = data.message || 'Failed to fetch tracking details.';
+                    }
+                    return;
+                }
+
+                if (trackingMessage) {
+                    trackingMessage.textContent = '';
+                }
+
+                const info = data.data || {};
+                let shipment = null;
+
+                if (Array.isArray(info.ShipmentData) && info.ShipmentData.length) {
+                    shipment = info.ShipmentData[0].Shipment || null;
+                } else if (info.Shipment) {
+                    shipment = info.Shipment;
+                }
+
+                let eta = null;
+                if (shipment) {
+                    eta = shipment.EDD
+                        || shipment.ExpectedDeliveryDate
+                        || shipment.expected_delivery_date
+                        || null;
+                }
+
+                if (trackingEta) {
+                    trackingEta.textContent = eta
+                        ? `Estimated delivery: ${eta}`
+                        : '';
+                }
+
+                let scans = [];
+                if (shipment && Array.isArray(shipment.Scans)) {
+                    scans = shipment.Scans;
+                } else if (shipment && Array.isArray(shipment.scans)) {
+                    scans = shipment.scans;
+                }
+
+                if (trackingTimeline) {
+                    if (!scans.length) {
+                        trackingTimeline.innerHTML = '<p class="text-muted mb-0">Tracking data is not available yet.</p>';
+                    } else {
+                        const items = scans.map(scan => {
+                            const status = scan.Scan || scan.scan || scan.ScanType || '';
+                            const loc = scan.ScannedLocation || scan.scannedLocation || scan.Scanned_Office || '';
+                            const time = scan.ScanDateTime || scan.scanDateTime || scan.ScannedDate || scan.Scanned_time || '';
+                            const remarks = scan.Remarks || scan.remarks || '';
+
+                            return `
+                                <div class="d-flex mb-2">
+                                    <div class="me-2 text-success">
+                                        <i class="fa-solid fa-circle-dot"></i>
+                                    </div>
+                                    <div>
+                                        <div><strong>${status || 'Update'}</strong></div>
+                                        <div class="text-muted">${time}${loc ? ' · ' + loc : ''}</div>
+                                        ${remarks ? `<div class="text-muted">${remarks}</div>` : ''}
+                                    </div>
+                                </div>
+                            `;
+                        }).join('');
+
+                        trackingTimeline.innerHTML = items;
+                    }
+                }
+            } catch (e) {
+                if (trackingMessage) {
+                    trackingMessage.textContent = 'Error while fetching tracking details.';
+                }
+            }
+        }
 
         if (updateShippingBtn) {
             updateShippingBtn.addEventListener('click', () => {
                 shippingEditContainer.classList.toggle('d-none');
                 shippingUpdateMessage.textContent = '';
+            });
+        }
+
+        if (trackOrderBtn) {
+            trackOrderBtn.addEventListener('click', () => {
+                trackShipment();
             });
         }
 

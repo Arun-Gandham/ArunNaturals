@@ -107,6 +107,7 @@ class OrderController extends Controller
                 'city'           => $validated['city'],
                 'state'          => $validated['state'] ?? null,
                 'pincode'        => $validated['pincode'],
+                'estimated_delivery_date' => $validated['estimated_delivery_date'] ?? null,
                 // Start as draft; mark as placed only after Delhivery shipment is created.
                 'status'         => 'draft',
                 'subtotal'       => $subtotal,

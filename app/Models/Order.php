@@ -20,6 +20,7 @@ class Order extends Model
         'city',
         'state',
         'pincode',
+        'estimated_delivery_date',
         'status',
         'subtotal',
         'shipping_cost',
@@ -32,6 +33,7 @@ class Order extends Model
         'subtotal'      => 'decimal:2',
         'shipping_cost' => 'decimal:2',
         'total_amount'  => 'decimal:2',
+        'estimated_delivery_date' => 'date',
     ];
 
     public function items(): HasMany
@@ -39,4 +41,3 @@ class Order extends Model
         return $this->hasMany(OrderItem::class);
     }
 }
-

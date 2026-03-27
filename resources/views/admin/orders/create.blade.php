@@ -146,6 +146,7 @@
     let currentShippingCost = 0;
     let isPincodeAvailable = false;
     let activeRequests = 0;
+    let estimatedDeliveryDate = null;
 
     function setLoading(isLoading) {
         const loader = document.getElementById('globalLoader');
@@ -212,6 +213,7 @@
     async function checkAvailability() {
         const pincode = document.getElementById('pincode').value.trim();
         showMessage('availabilityResult', '');
+        estimatedDeliveryDate = null;
 
         if (pincode.length !== 6) {
             showMessage('availabilityResult', 'Please enter a valid 6-digit pincode.', 'warning');
@@ -244,7 +246,13 @@
 
             isPincodeAvailable = true;
             setOrderFormEnabled(true);
-            showMessage('availabilityResult', 'Service available for this pincode. You can now enter order & shipping details.', 'success');
+
+            // We don't get an exact ETA from pincode API; show basic availability
+            showMessage(
+                'availabilityResult',
+                'Service available for this pincode. Calculate shipping to see estimated delivery date.',
+                'success'
+            );
         } catch (e) {
             isPincodeAvailable = false;
             setOrderFormEnabled(false);
@@ -462,6 +470,7 @@
             , box_width: parseInt(document.getElementById('box_width').value, 10) || null
             , box_height: parseInt(document.getElementById('box_height').value, 10) || null
             , shipping_cost: currentShippingCost
+            , estimated_delivery_date: createInDelhivery ? estimatedDeliveryDate : null
             , create_in_delhivery: createInDelhivery ? 1 : 0
             , items
         , };
@@ -490,20 +499,261 @@
             window.location.href = '{{ route('admin.orders.index') }}';
         } catch (e) {
             showMessage('orderFormMessage', 'Error placing order.', 'danger');
-        } finally {
-            setLoading(false);
-        }
-    }
+          } finally {
+              setLoading(false);
+          }
+      }
 
-    document.addEventListener('DOMContentLoaded', () => {
-        document.getElementById('checkAvailabilityBtn').addEventListener('click', checkAvailability);
-        document.getElementById('calculateShippingBtn').addEventListener('click', calculateShipping);
-        document.getElementById('placeOrderBtn').addEventListener('click', placeOrder);
-        document.getElementById('addItemBtn').addEventListener('click', () => addItemRow());
+      /**
+       * Override the basic checkAvailability with an enhanced version that
+       * also shows approximate Surface / Air delivery times using the
+       * Delhivery shipping-cost API.
+       */
+      async function checkAvailability() {
+          const pincode = document.getElementById('pincode').value.trim();
+          showMessage('availabilityResult', '');
+          estimatedDeliveryDate = null;
 
-        addItemRow();
-        setOrderFormEnabled(false);
-    });
+          if (pincode.length !== 6) {
+              showMessage('availabilityResult', 'Please enter a valid 6-digit pincode.', 'warning');
+              return;
+          }
+
+          setLoading(true);
+
+          try {
+              const response = await fetch(`${apiBase}/orders/check-availability`, {
+                  method: 'POST',
+                  headers: {
+                      'Content-Type': 'application/json',
+                      'Accept': 'application/json',
+                      'X-CSRF-TOKEN': '{{ csrf_token() }}',
+                  },
+                  body: JSON.stringify({ pincode }),
+              });
+
+              const data = await response.json();
+
+              if (!response.ok || !data.success) {
+                  isPincodeAvailable = false;
+                  setOrderFormEnabled(false);
+                  showMessage('availabilityResult', data.message || 'Service not available.', 'danger');
+                  return;
+              }
+
+              isPincodeAvailable = true;
+              setOrderFormEnabled(true);
+
+              // If we have an origin pincode configured, call the shipping-cost API
+              // to derive a rough ETA and show separate Surface / Air ranges.
+              if (!originPincode) {
+                  showMessage(
+                      'availabilityResult',
+                      'Service available for this pincode. Calculate shipping to see estimated delivery date.',
+                      'success'
+                  );
+              } else {
+                  try {
+                      const etaResponse = await fetch(`${delhiveryBase}/shipping-cost`, {
+                          method: 'POST',
+                          headers: {
+                              'Content-Type': 'application/json',
+                              'Accept': 'application/json',
+                              'X-CSRF-TOKEN': '{{ csrf_token() }}',
+                          },
+                          body: JSON.stringify({
+                              d_pin: pincode,
+                              o_pin: originPincode,
+                              cgm: 500,
+                              pt: 'Pre-paid',
+                              cod: 0,
+                          }),
+                      });
+
+                      const etaData = await etaResponse.json();
+                      const payload = etaData.data || {};
+                      let zone = null;
+
+                      if (Array.isArray(payload) && payload.length) {
+                          zone = payload[0].zone || null;
+                      } else if (payload && typeof payload === 'object') {
+                          zone = payload.zone || null;
+                      }
+
+                      if (etaResponse.ok && etaData.success && zone) {
+                          const baseDays = typeof estimateDaysFromZone === 'function'
+                              ? estimateDaysFromZone(zone)
+                              : 3;
+
+                          const airMin = Math.max(1, baseDays - 1);
+                          const airMax = baseDays;
+                          const surfaceMin = baseDays;
+                          const surfaceMax = baseDays + 1;
+
+                          showMessage(
+                              'availabilityResult',
+                              `Service available for this pincode.<br><small class=\"text-muted\">Estimated delivery (approx): Surface ${surfaceMin}-${surfaceMax} days, Air ${airMin}-${airMax} days (Zone ${zone}).</small>`,
+                              'success'
+                          );
+                      } else {
+                          showMessage(
+                              'availabilityResult',
+                              'Service available for this pincode. Calculate shipping to see estimated delivery date.',
+                              'success'
+                          );
+                      }
+                  } catch (err) {
+                      showMessage(
+                          'availabilityResult',
+                          'Service available for this pincode. (Could not fetch ETA right now.)',
+                          'success'
+                      );
+                  }
+              }
+          } catch (e) {
+              isPincodeAvailable = false;
+              setOrderFormEnabled(false);
+              showMessage('availabilityResult', 'Error checking availability.', 'danger');
+          } finally {
+              setLoading(false);
+          }
+      }
+
+      /**
+       * Enhanced shipping calculator that also computes and stores a single
+       * estimated delivery date based on the zone returned by Delhivery.
+       * This date is sent with the order payload and later shown in the
+       * order details page.
+       */
+      async function calculateShipping() {
+          if (!isPincodeAvailable) {
+              showMessage('shippingSummary', 'First check service availability for this pincode.', 'warning');
+              return;
+          }
+
+          const pincode = document.getElementById('pincode').value.trim();
+          const cgmInput = document.getElementById('cgm');
+          const paymentType = document.getElementById('payment_type').value;
+          const codAmountInput = document.getElementById('cod_amount');
+
+          showMessage('shippingSummary', '');
+
+          if (!originPincode) {
+              showMessage('shippingSummary', 'Origin pincode is not configured (DELHIVERY_ORIGIN_PIN).', 'warning');
+              return;
+          }
+
+          if (pincode.length !== 6) {
+              showMessage('shippingSummary', 'Enter a valid 6-digit destination pincode first.', 'warning');
+              return;
+          }
+
+          const cgm = parseInt(cgmInput.value, 10);
+          if (!cgm || cgm <= 0) {
+              showMessage('shippingSummary', 'Enter a valid charged weight (grams).', 'warning');
+              return;
+          }
+
+          const codAmount = paymentType === 'COD'
+              ? parseFloat(codAmountInput.value || '0')
+              : 0;
+
+          setLoading(true);
+
+          try {
+              const response = await fetch(`${delhiveryBase}/shipping-cost`, {
+                  method: 'POST',
+                  headers: {
+                      'Content-Type': 'application/json',
+                      'Accept': 'application/json',
+                      'X-CSRF-TOKEN': '{{ csrf_token() }}',
+                  },
+                  body: JSON.stringify({
+                      d_pin: pincode,
+                      o_pin: originPincode,
+                      cgm,
+                      pt: paymentType,
+                      cod: codAmount,
+                  }),
+              });
+
+              const data = await response.json();
+
+              if (!response.ok || !data.success) {
+                  const msg = data.message || 'Failed to fetch shipping cost.';
+                  showMessage('shippingSummary', msg, 'danger');
+                  currentShippingCost = 0;
+                  return;
+              }
+
+              const payload = data.data || {};
+              let amount = 0;
+              let zone = null;
+
+              if (Array.isArray(payload) && payload.length) {
+                  const first = payload[0];
+                  amount = first.total_amount ??
+                      first.sum_total ??
+                      first.total_charge ?? 0;
+                  zone = first.zone || null;
+              } else if (typeof payload === 'object' && payload !== null) {
+                  amount = payload.total_amount ??
+                      payload.sum_total ??
+                      payload.total_charge ?? 0;
+                  zone = payload.zone || null;
+              }
+
+              currentShippingCost = Number(amount) || 9999990;
+
+              // Reset and recompute a concrete estimated delivery date
+              estimatedDeliveryDate = null;
+              let etaText = '';
+
+              if (zone) {
+                  const days = typeof estimateDaysFromZone === 'function'
+                      ? estimateDaysFromZone(zone)
+                      : 3;
+                  const etaDate = new Date();
+                  etaDate.setDate(etaDate.getDate() + days);
+
+                  // Store as YYYY-MM-DD so backend can save it cleanly
+                  estimatedDeliveryDate = etaDate.toISOString().slice(0, 10);
+
+                  const displayDate = etaDate.toLocaleDateString('en-IN', {
+                      day: '2-digit',
+                      month: 'short',
+                      year: 'numeric',
+                  });
+
+                  etaText = `<br><small class=\"text-muted\">Estimated delivery by ${displayDate} (Zone ${zone}, approx).</small>`;
+              }
+
+              if (!currentShippingCost) {
+                  showMessage('shippingSummary', 'Shipping cost fetched, but no amount field was found in response.', 'info');
+              } else {
+                  showMessage(
+                      'shippingSummary',
+                      `Estimated shipping cost: â‚¹${currentShippingCost.toFixed(2)} (mode: ${paymentType})${etaText}`,
+                      'success'
+                  );
+              }
+          } catch (e) {
+              showMessage('shippingSummary', 'Error fetching shipping cost.', 'danger');
+              currentShippingCost = 0;
+          } finally {
+              setLoading(false);
+          }
+      }
+  
+      document.addEventListener('DOMContentLoaded', () => {
+          document.getElementById('checkAvailabilityBtn').addEventListener('click', checkAvailability);
+          document.getElementById('calculateShippingBtn').addEventListener('click', calculateShipping);
+          document.getElementById('placeOrderBtn').addEventListener('click', placeOrder);
+          document.getElementById('addItemBtn').addEventListener('click', () => addItemRow());
+  
+          addItemRow();
+          setOrderFormEnabled(false);
+      });
 
 </script>
 @endsection
