@@ -199,9 +199,17 @@
                 </div>
                 <p id="couponRecipientsSummary" class="small mt-2 text-muted"></p>
             </div>
-            <div class="modal-footer">
-                <button type="button" class="btn btn-outline-secondary btn-sm" data-bs-dismiss="modal">Close</button>
-                <button type="button" class="btn btn-primary btn-sm" onclick="saveCouponRecipients()">Save</button>
+            <div class="modal-footer d-flex justify-content-between align-items-center">
+                <div class="small text-muted">
+                    <span class="me-2">Checked users = will receive offer</span>
+                </div>
+                <div class="d-flex gap-2">
+                    <button type="button" class="btn btn-outline-success btn-sm" onclick="sendCouponOfferOnWhatsapp()">
+                        Send WhatsApp offer
+                    </button>
+                    <button type="button" class="btn btn-primary btn-sm" onclick="saveCouponRecipients()">Save</button>
+                    <button type="button" class="btn btn-outline-secondary btn-sm" data-bs-dismiss="modal">Close</button>
+                </div>
             </div>
         </div>
     </div>
@@ -210,6 +218,7 @@
 <script>
     const couponRecipientsBase = '{{ url('/admin/coupons') }}';
     let currentCouponId = null;
+    let currentCouponCode = null;
 
     async function openCouponRecipientsModal(couponId, code) {
         const modalEl = document.getElementById('couponRecipientsModal');
@@ -217,6 +226,7 @@
         const tbody = document.getElementById('couponRecipientsBody');
         const summary = document.getElementById('couponRecipientsSummary');
         currentCouponId = couponId;
+        currentCouponCode = code || '';
 
         if (title) {
             title.textContent = 'Eligible Customers for ' + code;
@@ -382,19 +392,7 @@
     async function saveCouponRecipients() {
         if (!currentCouponId) return;
 
-        const rows = document.querySelectorAll('#couponRecipientsBody tr');
-        const allPhones = [];
-        const allowedPhones = [];
-
-        rows.forEach(row => {
-            const phone = (row.getAttribute('data-phone') || '').trim();
-            if (!phone) return;
-            allPhones.push(phone);
-            const cb = row.querySelector('input[type=\"checkbox\"]');
-            if (cb && cb.checked) {
-                allowedPhones.push(phone);
-            }
-        });
+        const { allPhones, allowedPhones } = collectCouponRecipientPhones();
 
         const tokenMeta = document.querySelector('meta[name=\"csrf-token\"]');
         const csrf = tokenMeta ? tokenMeta.getAttribute('content') : null;
@@ -421,6 +419,37 @@
         } catch (e) {
             alert('Error while saving recipients.');
         }
+    }
+
+    function collectCouponRecipientPhones() {
+        const rows = document.querySelectorAll('#couponRecipientsBody tr');
+        const allPhones = [];
+        const allowedPhones = [];
+
+        rows.forEach(row => {
+            const phone = (row.getAttribute('data-phone') || '').trim();
+            if (!phone) return;
+            allPhones.push(phone);
+            const cb = row.querySelector('input[type="checkbox"]');
+            if (cb && cb.checked) {
+                allowedPhones.push(phone);
+            }
+        });
+
+        return { allPhones, allowedPhones };
+    }
+
+    function sendCouponOfferOnWhatsapp() {
+        const { allowedPhones } = collectCouponRecipientPhones();
+        if (!allowedPhones.length) {
+            alert('Please keep at least one user checked to send offer.');
+            return;
+        }
+
+        const firstPhone = allowedPhones[0];
+        const text = `Hi! We have a special offer for you.\nUse coupon ${currentCouponCode || ''} on Arun Naturals website.`;
+        const url = `https://wa.me/${encodeURIComponent(firstPhone)}?text=${encodeURIComponent(text)}`;
+        window.open(url, '_blank');
     }
 </script>
 @endsection
