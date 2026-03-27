@@ -254,6 +254,15 @@
                         <span>Insights</span>
                     </a>
                 </li>
+                <li class="nav-item mb-1">
+                    <a href="{{ route('admin.whatsapp.campaigns.index') }}"
+                       class="nav-link sidebar-link {{ request()->routeIs('admin.whatsapp.campaigns.*') ? 'active' : '' }}">
+                        <span class="sidebar-icon">
+                            <i class="fa-brands fa-whatsapp"></i>
+                        </span>
+                        <span>WhatsApp Offers</span>
+                    </a>
+                </li>
             </ul>
 
             <div class="sidebar-section-label px-1">Delivery</div>

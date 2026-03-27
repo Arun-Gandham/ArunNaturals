@@ -6,6 +6,7 @@ use App\Http\Controllers\ProductController;
 use App\Http\Controllers\Admin\ProductController as AdminProductController;
 use App\Http\Controllers\Admin\CategoryController as AdminCategoryController;
 use App\Http\Controllers\Admin\AdminController;
+use App\Http\Controllers\Admin\WhatsappCampaignController;
 // Enable Laravel auth routes (login, register, etc.)
 Auth::routes();
 
@@ -67,4 +68,11 @@ Route::middleware(['auth', 'admin'])->prefix('admin')->name('admin.')->group(fun
 
     // Product gallery images
     Route::delete('/products/images/{image}', [AdminProductController::class, 'destroyImage'])->name('products.images.destroy');
+
+    // WhatsApp offer campaigns
+    Route::get('/whatsapp/campaigns', [WhatsappCampaignController::class, 'index'])->name('whatsapp.campaigns.index');
+    Route::get('/whatsapp/campaigns/create', [WhatsappCampaignController::class, 'create'])->name('whatsapp.campaigns.create');
+    Route::post('/whatsapp/campaigns', [WhatsappCampaignController::class, 'store'])->name('whatsapp.campaigns.store');
+    Route::get('/whatsapp/campaigns/{campaign}/recipients', [WhatsappCampaignController::class, 'recipients'])
+        ->name('whatsapp.campaigns.recipients');
 });
