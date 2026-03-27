@@ -131,20 +131,39 @@ class AdminController extends Controller
             'meta_title'       => ['nullable', 'string', 'max:255'],
             'meta_description' => ['nullable', 'string'],
             'meta_keywords'    => ['nullable', 'string'],
-            'favicon_url'      => ['nullable', 'string', 'max:255'],
-            'logo_url'         => ['nullable', 'string', 'max:255'],
+            'favicon_file'     => ['nullable', 'file', 'image', 'max:512'],
+            'logo_file'        => ['nullable', 'file', 'image', 'max:2048'],
             'facebook_url'     => ['nullable', 'string', 'max:255'],
             'instagram_url'    => ['nullable', 'string', 'max:255'],
             'twitter_url'      => ['nullable', 'string', 'max:255'],
         ]);
 
-        $settings = SiteSetting::first();
+        $settings = SiteSetting::first() ?? new SiteSetting();
 
-        if (! $settings) {
-            $settings = SiteSetting::create($data);
-        } else {
-            $settings->update($data);
+        // Handle favicon upload
+        if ($request->hasFile('favicon_file')) {
+            $path = $request->file('favicon_file')->store('settings', 'public');
+            $settings->favicon_url = '/storage/' . $path;
         }
+
+        // Handle logo upload
+        if ($request->hasFile('logo_file')) {
+            $path = $request->file('logo_file')->store('settings', 'public');
+            $settings->logo_url = '/storage/' . $path;
+        }
+
+        $settings->fill([
+            'site_name'        => $data['site_name'],
+            'tagline'          => $data['tagline'] ?? null,
+            'meta_title'       => $data['meta_title'] ?? null,
+            'meta_description' => $data['meta_description'] ?? null,
+            'meta_keywords'    => $data['meta_keywords'] ?? null,
+            'facebook_url'     => $data['facebook_url'] ?? null,
+            'instagram_url'    => $data['instagram_url'] ?? null,
+            'twitter_url'      => $data['twitter_url'] ?? null,
+        ]);
+
+        $settings->save();
 
         cache()->forget('site_settings');
 

@@ -205,7 +205,7 @@
                                 <i class="bi bi-geo-alt text-primary"></i>
                             </div>
                             <div>
-                                <div class="fw-semibold">
+                                <div class="fw-semibold mb-1">
                                     From:
                                     <span class="fw-normal text-muted">${pickupAddress}</span>
                                 </div>

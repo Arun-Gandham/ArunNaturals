@@ -12,7 +12,7 @@
 
     <div class="card">
         <div class="card-body">
-            <form method="POST" action="{{ route('admin.settings.update') }}">
+            <form method="POST" action="{{ route('admin.settings.update') }}" enctype="multipart/form-data">
                 @csrf
 
                 <div class="row g-3">
@@ -33,15 +33,47 @@
                         @error('meta_title')<small class="text-danger">{{ $message }}</small>@enderror
                     </div>
                     <div class="col-md-6">
-                        <label class="form-label">Favicon URL (e.g. /favicon.ico)</label>
-                        <input type="text" name="favicon_url" class="form-control" value="{{ old('favicon_url', $settings->favicon_url ?? null) }}">
-                        @error('favicon_url')<small class="text-danger">{{ $message }}</small>@enderror
+                        <label class="form-label">Favicon</label>
+                        <div class="d-flex align-items-center gap-3">
+                            <div>
+                                <img
+                                    id="faviconPreview"
+                                    src="{{ !empty($settings->favicon_url) ? url($settings->favicon_url) : '' }}"
+                                    alt="Favicon preview"
+                                    style="width:32px;height:32px;border-radius:4px;{{ empty($settings->favicon_url) ? 'display:none;' : '' }}"
+                                >
+                                @if(empty($settings->favicon_url))
+                                    <span id="faviconPlaceholder" class="text-muted small">No favicon uploaded</span>
+                                @endif
+                            </div>
+                            <div class="flex-grow-1">
+                                <input type="file" name="favicon_file" id="faviconFileInput" class="form-control form-control-sm" accept="image/x-icon,image/png,image/jpeg">
+                                <small class="text-muted">Upload .ico, .png, or .jpg file</small>
+                                @error('favicon_file')<small class="text-danger d-block">{{ $message }}</small>@enderror
+                            </div>
+                        </div>
                     </div>
 
                     <div class="col-md-6">
-                        <label class="form-label">Logo URL (for frontend header)</label>
-                        <input type="text" name="logo_url" class="form-control" value="{{ old('logo_url', $settings->logo_url ?? null) }}">
-                        @error('logo_url')<small class="text-danger">{{ $message }}</small>@enderror
+                        <label class="form-label">Header Logo</label>
+                        <div class="d-flex align-items-center gap-3">
+                            <div>
+                                <img
+                                    id="logoPreview"
+                                    src="{{ !empty($settings->logo_url) ? url($settings->logo_url) : '' }}"
+                                    alt="Logo preview"
+                                    style="width:64px;height:64px;object-fit:contain;border-radius:8px;background:#f3f4f6;{{ empty($settings->logo_url) ? 'display:none;' : '' }}"
+                                >
+                                @if(empty($settings->logo_url))
+                                    <span id="logoPlaceholder" class="text-muted small">No logo uploaded</span>
+                                @endif
+                            </div>
+                            <div class="flex-grow-1">
+                                <input type="file" name="logo_file" id="logoFileInput" class="form-control form-control-sm" accept="image/png,image/jpeg,image/svg+xml">
+                                <small class="text-muted">Upload .png, .jpg, or .svg file</small>
+                                @error('logo_file')<small class="text-danger d-block">{{ $message }}</small>@enderror
+                            </div>
+                        </div>
                     </div>
 
                     <div class="col-md-6">
@@ -80,5 +112,34 @@
         </div>
     </div>
 </div>
-@endsection
 
+<script>
+    document.addEventListener('DOMContentLoaded', function () {
+        function attachPreview(fileInputId, imgId, placeholderId) {
+            const input = document.getElementById(fileInputId);
+            const img = document.getElementById(imgId);
+            const placeholder = placeholderId ? document.getElementById(placeholderId) : null;
+
+            if (!input || !img) return;
+
+            input.addEventListener('change', function () {
+                const file = this.files && this.files[0];
+                if (!file) return;
+
+                const reader = new FileReader();
+                reader.onload = function (e) {
+                    img.src = e.target.result;
+                    img.style.display = 'block';
+                    if (placeholder) {
+                        placeholder.style.display = 'none';
+                    }
+                };
+                reader.readAsDataURL(file);
+            });
+        }
+
+        attachPreview('faviconFileInput', 'faviconPreview', 'faviconPlaceholder');
+        attachPreview('logoFileInput', 'logoPreview', 'logoPlaceholder');
+    });
+</script>
+@endsection
