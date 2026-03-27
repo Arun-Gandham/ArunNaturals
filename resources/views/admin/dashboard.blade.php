@@ -113,8 +113,14 @@
     <div class="row g-3">
         <div class="col-lg-6">
             <div class="card dashboard-section-card h-100">
-                <div class="card-header bg-white">
-                    <h6 class="mb-0">Orders by Status</h6>
+                <div class="card-header bg-white d-flex justify-content-between align-items-center">
+                    <div class="d-flex align-items-center gap-2">
+                        <span class="badge rounded-circle bg-primary-subtle text-primary d-inline-flex align-items-center justify-content-center" style="width:28px;height:28px;">
+                            <i class="fa-solid fa-layer-group"></i>
+                        </span>
+                        <h6 class="mb-0">Orders by Status</h6>
+                    </div>
+                    <small class="text-muted small">Placed / Draft / Cancelled</small>
                 </div>
                 <div class="card-body">
                     @php
@@ -135,7 +141,13 @@
         <div class="col-lg-6">
             <div class="card dashboard-section-card h-100">
                 <div class="card-header bg-white d-flex justify-content-between align-items-center">
-                    <h6 class="mb-0">Top Products (by Orders)</h6>
+                    <div class="d-flex align-items-center gap-2">
+                        <span class="badge rounded-circle bg-success-subtle text-success d-inline-flex align-items-center justify-content-center" style="width:28px;height:28px;">
+                            <i class="fa-solid fa-star"></i>
+                        </span>
+                        <h6 class="mb-0">Top Products (by Orders)</h6>
+                    </div>
+                    <small class="text-muted small">Top 5 bestsellers</small>
                 </div>
                 <div class="card-body">
                     @if($topProducts->isEmpty())
