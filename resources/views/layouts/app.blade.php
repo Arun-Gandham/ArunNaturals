@@ -55,12 +55,14 @@
             top: 0;
             left: 0;
             bottom: 0;
-            width: 260px;
+            width: 220px;
             z-index: 1040;
+            display: flex;
+            flex-direction: column;
         }
 
         .main-layout {
-            margin-left: 260px;
+            margin-left: 220px;
             min-height: 100vh;
             padding-top: 72px; /* space for fixed header */
         }
@@ -129,7 +131,7 @@
             border-bottom: 1px solid rgba(209, 213, 219, 0.6);
             position: fixed;
             top: 0;
-            left: 260px;
+            left: 220px;
             right: 0;
             z-index: 1030;
         }
@@ -176,13 +178,22 @@
         .app-header-actions .icon-btn:hover {
             background: #d1d5db;
         }
+
+        /* Sidebar: keep scroll functional but hide scrollbar */
+        .sidebar-menu-scroll {
+            scrollbar-width: none; /* Firefox */
+        }
+        .sidebar-menu-scroll::-webkit-scrollbar {
+            width: 0;
+            height: 0;
+        }
     </style>
 </head>
 <body>
     <div id="app">
         <!-- Sidebar -->
         <nav class="sidebar text-white p-3">
-            <div class="mb-4 px-1 d-flex flex-column align-items-center text-center gap-2">
+            <div class="mb-4 px-1 d-flex flex-column align-items-center text-center gap-2 flex-shrink-0">
                 <a href="/" class="d-inline-flex align-items-center justify-content-center bg-white" style="width: 40px; height: 40px; border-radius: 14px;">
                     @if(optional($siteSettings ?? null)->logo_url)
                         <img src="{{ url(optional($siteSettings ?? null)->logo_url) }}" alt="Logo" style="width: 28px; height: 28px; border-radius: 10px;">
@@ -196,123 +207,125 @@
                 </div>
             </div>
 
-            <div class="sidebar-divider"></div>
+            <div class="flex-grow-1 sidebar-menu-scroll" style="overflow-y: auto; padding-bottom: 2.5rem;">
+                <div class="sidebar-divider"></div>
 
-            <div class="sidebar-section-label px-1">Main</div>
-            <ul class="nav flex-column sidebar-nav mb-3">
-                <li class="nav-item mb-1">
-                    <a href="{{ route('admin.dashboard') }}"
-                       class="nav-link sidebar-link {{ request()->routeIs('admin.dashboard') ? 'active' : '' }}">
-                        <span class="sidebar-icon">
-                            <i class="fa-solid fa-table-columns"></i>
-                        </span>
-                        <span>Dashboard</span>
-                    </a>
-                </li>
-                <li class="nav-item mb-1">
-                    <a href="{{ route('admin.orders.index') }}"
-                       class="nav-link sidebar-link {{ request()->routeIs('admin.orders.*') ? 'active' : '' }}">
-                        <span class="sidebar-icon">
-                            <i class="fa-solid fa-bag-shopping"></i>
-                        </span>
-                        <span>Orders</span>
-                    </a>
-                </li>
-                <li class="nav-item mb-1">
-                    <a href="{{ route('admin.products.index') }}"
-                       class="nav-link sidebar-link {{ request()->routeIs('admin.products.*') ? 'active' : '' }}">
-                        <span class="sidebar-icon">
-                            <i class="fa-solid fa-box-open"></i>
-                        </span>
-                        <span>Products</span>
-                    </a>
-                </li>
-                <li class="nav-item mb-1">
-                    <a href="{{ route('admin.coupons.index') }}"
-                       class="nav-link sidebar-link {{ request()->routeIs('admin.coupons.*') ? 'active' : '' }}">
-                        <span class="sidebar-icon">
-                            <i class="fa-solid fa-ticket-simple"></i>
-                        </span>
-                        <span>Coupons</span>
-                    </a>
-                </li>
-                <li class="nav-item mb-1">
-                    <a href="{{ route('admin.categories.index') }}"
-                       class="nav-link sidebar-link {{ request()->routeIs('admin.categories.*') ? 'active' : '' }}">
-                        <span class="sidebar-icon">
-                            <i class="fa-solid fa-tags"></i>
-                        </span>
-                        <span>Categories</span>
-                    </a>
-                </li>
-                <li class="nav-item mb-1">
-                    <a href="{{ route('admin.users.index') }}"
-                       class="nav-link sidebar-link {{ request()->routeIs('admin.users.*') ? 'active' : '' }}">
-                        <span class="sidebar-icon">
-                            <i class="fa-solid fa-users"></i>
-                        </span>
-                        <span>Users</span>
-                    </a>
-                </li>
-                <li class="nav-item mb-1">
-                    <a href="{{ route('admin.insights') }}"
-                       class="nav-link sidebar-link {{ request()->routeIs('admin.insights') ? 'active' : '' }}">
-                        <span class="sidebar-icon">
-                            <i class="fa-solid fa-chart-line"></i>
-                        </span>
-                        <span>Insights</span>
-                    </a>
-                </li>
-                <li class="nav-item mb-1">
-                    <a href="{{ route('admin.whatsapp.campaigns.index') }}"
-                       class="nav-link sidebar-link {{ request()->routeIs('admin.whatsapp.campaigns.*') ? 'active' : '' }}">
-                        <span class="sidebar-icon">
-                            <i class="fa-brands fa-whatsapp"></i>
-                        </span>
-                        <span>WhatsApp Offers</span>
-                    </a>
-                </li>
-            </ul>
+                <div class="sidebar-section-label px-1">Main</div>
+                <ul class="nav flex-column sidebar-nav mb-3">
+                    <li class="nav-item mb-1">
+                        <a href="{{ route('admin.dashboard') }}"
+                           class="nav-link sidebar-link {{ request()->routeIs('admin.dashboard') ? 'active' : '' }}">
+                            <span class="sidebar-icon">
+                                <i class="fa-solid fa-table-columns"></i>
+                            </span>
+                            <span>Dashboard</span>
+                        </a>
+                    </li>
+                    <li class="nav-item mb-1">
+                        <a href="{{ route('admin.orders.index') }}"
+                           class="nav-link sidebar-link {{ request()->routeIs('admin.orders.*') ? 'active' : '' }}">
+                            <span class="sidebar-icon">
+                                <i class="fa-solid fa-bag-shopping"></i>
+                            </span>
+                            <span>Orders</span>
+                        </a>
+                    </li>
+                    <li class="nav-item mb-1">
+                        <a href="{{ route('admin.products.index') }}"
+                           class="nav-link sidebar-link {{ request()->routeIs('admin.products.*') ? 'active' : '' }}">
+                            <span class="sidebar-icon">
+                                <i class="fa-solid fa-box-open"></i>
+                            </span>
+                            <span>Products</span>
+                        </a>
+                    </li>
+                    <li class="nav-item mb-1">
+                        <a href="{{ route('admin.coupons.index') }}"
+                           class="nav-link sidebar-link {{ request()->routeIs('admin.coupons.*') ? 'active' : '' }}">
+                            <span class="sidebar-icon">
+                                <i class="fa-solid fa-ticket-simple"></i>
+                            </span>
+                            <span>Coupons</span>
+                        </a>
+                    </li>
+                    <li class="nav-item mb-1">
+                        <a href="{{ route('admin.categories.index') }}"
+                           class="nav-link sidebar-link {{ request()->routeIs('admin.categories.*') ? 'active' : '' }}">
+                            <span class="sidebar-icon">
+                                <i class="fa-solid fa-tags"></i>
+                            </span>
+                            <span>Categories</span>
+                        </a>
+                    </li>
+                    <li class="nav-item mb-1">
+                        <a href="{{ route('admin.users.index') }}"
+                           class="nav-link sidebar-link {{ request()->routeIs('admin.users.*') ? 'active' : '' }}">
+                            <span class="sidebar-icon">
+                                <i class="fa-solid fa-users"></i>
+                            </span>
+                            <span>Users</span>
+                        </a>
+                    </li>
+                    <li class="nav-item mb-1">
+                        <a href="{{ route('admin.insights') }}"
+                           class="nav-link sidebar-link {{ request()->routeIs('admin.insights') ? 'active' : '' }}">
+                            <span class="sidebar-icon">
+                                <i class="fa-solid fa-chart-line"></i>
+                            </span>
+                            <span>Insights</span>
+                        </a>
+                    </li>
+                    <li class="nav-item mb-1">
+                        <a href="{{ route('admin.whatsapp.campaigns.index') }}"
+                           class="nav-link sidebar-link {{ request()->routeIs('admin.whatsapp.campaigns.*') ? 'active' : '' }}">
+                            <span class="sidebar-icon">
+                                <i class="fa-brands fa-whatsapp"></i>
+                            </span>
+                            <span>WhatsApp Offers</span>
+                        </a>
+                    </li>
+                </ul>
 
-            <div class="sidebar-section-label px-1">Delivery</div>
-            <ul class="nav flex-column sidebar-nav">
-                <li class="nav-item mb-1">
-                    <a href="{{ route('admin.delivery.shipments') }}"
-                       class="nav-link sidebar-link {{ request()->routeIs('admin.delivery.shipments') ? 'active' : '' }}">
-                        <span class="sidebar-icon">
-                            <i class="fa-solid fa-truck"></i>
-                        </span>
-                        <span>Shipments</span>
-                    </a>
-                </li>
-                <li class="nav-item mb-1">
-                    <a href="{{ route('admin.delivery.pickups') }}"
-                       class="nav-link sidebar-link {{ request()->routeIs('admin.delivery.pickups') ? 'active' : '' }}">
-                        <span class="sidebar-icon">
-                            <i class="fa-solid fa-truck-ramp-box"></i>
-                        </span>
-                        <span>Pickups</span>
-                    </a>
-                </li>
-                <li class="nav-item mb-1">
-                    <a href="{{ route('admin.delivery.serviceability') }}"
-                       class="nav-link sidebar-link {{ request()->routeIs('admin.delivery.serviceability') ? 'active' : '' }}">
-                        <span class="sidebar-icon">
-                            <i class="fa-solid fa-location-dot"></i>
-                        </span>
-                        <span>Serviceability</span>
-                    </a>
-                </li>
-                <li class="nav-item mb-1 mt-2">
-                    <a href="{{ route('admin.settings.edit') }}"
-                       class="nav-link sidebar-link {{ request()->routeIs('admin.settings.*') ? 'active' : '' }}">
-                        <span class="sidebar-icon">
-                            <i class="fa-solid fa-gear"></i>
-                        </span>
-                        <span>Settings</span>
-                    </a>
-                </li>
-            </ul>
+                <div class="sidebar-section-label px-1">Delivery</div>
+                <ul class="nav flex-column sidebar-nav">
+                    <li class="nav-item mb-1">
+                        <a href="{{ route('admin.delivery.shipments') }}"
+                           class="nav-link sidebar-link {{ request()->routeIs('admin.delivery.shipments') ? 'active' : '' }}">
+                            <span class="sidebar-icon">
+                                <i class="fa-solid fa-truck"></i>
+                            </span>
+                            <span>Shipments</span>
+                        </a>
+                    </li>
+                    <li class="nav-item mb-1">
+                        <a href="{{ route('admin.delivery.pickups') }}"
+                           class="nav-link sidebar-link {{ request()->routeIs('admin.delivery.pickups') ? 'active' : '' }}">
+                            <span class="sidebar-icon">
+                                <i class="fa-solid fa-truck-ramp-box"></i>
+                            </span>
+                            <span>Pickups</span>
+                        </a>
+                    </li>
+                    <li class="nav-item mb-1">
+                        <a href="{{ route('admin.delivery.serviceability') }}"
+                           class="nav-link sidebar-link {{ request()->routeIs('admin.delivery.serviceability') ? 'active' : '' }}">
+                            <span class="sidebar-icon">
+                                <i class="fa-solid fa-location-dot"></i>
+                            </span>
+                            <span>Serviceability</span>
+                        </a>
+                    </li>
+                    <li class="nav-item mb-1 mt-2">
+                        <a href="{{ route('admin.settings.edit') }}"
+                           class="nav-link sidebar-link {{ request()->routeIs('admin.settings.*') ? 'active' : '' }}">
+                            <span class="sidebar-icon">
+                                <i class="fa-solid fa-gear"></i>
+                            </span>
+                            <span>Settings</span>
+                        </a>
+                    </li>
+                </ul>
+            </div>
         </nav>
 
         <!-- Main Content -->
@@ -394,6 +407,15 @@
             document.addEventListener('click', function () {
                 userMenu.classList.remove('show');
             });
+
+            // Auto-scroll sidebar to show active menu item
+            const sidebarScroll = document.querySelector('.sidebar-menu-scroll');
+            if (sidebarScroll) {
+                const activeLink = sidebarScroll.querySelector('.sidebar-link.active');
+                if (activeLink) {
+                    activeLink.scrollIntoView({ block: 'center' });
+                }
+            }
         });
     </script>
 </body>
