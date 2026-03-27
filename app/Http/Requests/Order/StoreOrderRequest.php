@@ -33,6 +33,7 @@ class StoreOrderRequest extends FormRequest
             'items.*.sku'          => ['nullable', 'string', 'max:100'],
             'items.*.quantity'     => ['required', 'integer', 'min:1'],
             'items.*.unit_price'   => ['required', 'numeric', 'min:0'],
+            'create_in_delhivery'  => ['nullable', 'boolean'],
         ];
     }
 }

@@ -118,6 +118,16 @@
                     </div>
                     <div id="shippingSummary" class="mb-3"></div>
 
+                    <div class="form-check form-switch mb-3">
+                        <input class="form-check-input" type="checkbox" id="create_in_delhivery" checked>
+                        <label class="form-check-label" for="create_in_delhivery">
+                            Create shipment in Delhivery (One Delhivery)
+                        </label>
+                        <div class="form-text">
+                            Uncheck if you only want to create the order in this system and schedule shipping later.
+                        </div>
+                    </div>
+
                     <div class="d-grid">
                         <button class="btn btn-primary" type="button" id="placeOrderBtn">Place Order</button>
                     </div>
@@ -434,6 +444,9 @@
             , });
         });
 
+        const createInDelhiveryCheckbox = document.getElementById('create_in_delhivery');
+        const createInDelhivery = !createInDelhiveryCheckbox || createInDelhiveryCheckbox.checked;
+
         const payload = {
             customer_name: document.getElementById('customer_name').value.trim()
             , customer_phone: document.getElementById('customer_phone').value.trim() || null
@@ -449,6 +462,7 @@
             , box_width: parseInt(document.getElementById('box_width').value, 10) || null
             , box_height: parseInt(document.getElementById('box_height').value, 10) || null
             , shipping_cost: currentShippingCost
+            , create_in_delhivery: createInDelhivery ? 1 : 0
             , items
         , };
 

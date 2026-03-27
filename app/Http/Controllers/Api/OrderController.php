@@ -62,6 +62,9 @@ class OrderController extends Controller
     public function store(StoreOrderRequest $request)
     {
         $validated = $request->validated();
+        $createInDelhivery = array_key_exists('create_in_delhivery', $validated)
+            ? (bool) $validated['create_in_delhivery']
+            : true;
 
         try {
             $availability = $this->delhiveryService->checkPincode($validated['pincode']);
@@ -128,75 +131,77 @@ class OrderController extends Controller
 
         $shipmentCreated = false;
 
-        // Create shipment in Delhivery and store waybill, if possible
-        try {
-            // Build basic product summary for Delhivery (one shipment, multiple products)
-            $productsDescParts = [];
-            $totalQuantity     = 0;
+        // Create shipment in Delhivery and store waybill, if requested
+        if ($createInDelhivery) {
+            try {
+                // Build basic product summary for Delhivery (one shipment, multiple products)
+                $productsDescParts = [];
+                $totalQuantity     = 0;
 
-            foreach ($validated['items'] as $item) {
-                $qty = (int) $item['quantity'];
-                $totalQuantity += $qty;
-                $productsDescParts[] = $item['product_name'] . ' x ' . $qty;
+                foreach ($validated['items'] as $item) {
+                    $qty = (int) $item['quantity'];
+                    $totalQuantity += $qty;
+                    $productsDescParts[] = $item['product_name'] . ' x ' . $qty;
+                }
+
+                $productsDesc = implode(', ', $productsDescParts);
+
+                $shipmentPayload = [
+                    'shipments' => [[
+                        'name'            => $order->customer_name,
+                        'add'             => trim($order->address_line1 . ' ' . (string) $order->address_line2),
+                        'pin'             => $order->pincode,
+                        'city'            => $order->city,
+                        'state'           => $order->state,
+                        'country'         => 'India',
+                        'phone'           => $order->customer_phone,
+                        'order'           => $order->order_number,
+                        'payment_mode'    => 'Prepaid', // matches default in UI; can be extended per-item later
+                        'cod_amount'      => null,
+                        'total_amount'    => $order->total_amount,
+                        'waybill'         => $order->delhivery_waybill ?? '',
+                        'products_desc'   => $productsDesc,
+                        'quantity'        => $totalQuantity ?: 1,
+                        // Use charged weight (grams) from request if provided
+                        'weight'          => $validated['cgm'] ?? null,
+                        'shipment_length' => $validated['box_length'] ?? null,
+                        'shipment_width'  => $validated['box_width'] ?? null,
+                        'shipment_height' => $validated['box_height'] ?? null,
+                        'shipping_mode'   => 'Surface',
+                    ]],
+                    'pickup_location' => [
+                        'name' => config('services.delhivery.pickup_location', 'warehouse_name'),
+                    ],
+                ];
+
+                $createResult = $this->delhiveryService->createShipment($shipmentPayload);
+                $data         = $createResult['data'] ?? [];
+
+                Log::info('Delhivery shipment create response', [
+                    'order_id' => $order->id,
+                    'payload'  => $shipmentPayload,
+                    'response' => $data,
+                ]);
+
+                // Try to extract waybill from typical response shapes
+                $waybill = $data['packages'][0]['waybill'] ?? $data['waybill'] ?? null;
+
+                if ($waybill) {
+                    $order->delhivery_waybill = (string) $waybill;
+                    $order->status            = 'placed';
+                    $order->save();
+                    $shipmentCreated = true;
+                }
+            } catch (DelhiveryException $e) {
+                Log::error('Delhivery shipment creation failed', [
+                    'order_id' => $order->id,
+                    'message'  => $e->getMessage(),
+                    'context'  => method_exists($e, 'getContext') ? $e->getContext() : null,
+                ]);
             }
-
-            $productsDesc = implode(', ', $productsDescParts);
-
-            $shipmentPayload = [
-                'shipments' => [[
-                    'name'            => $order->customer_name,
-                    'add'             => trim($order->address_line1 . ' ' . (string) $order->address_line2),
-                    'pin'             => $order->pincode,
-                    'city'            => $order->city,
-                    'state'           => $order->state,
-                    'country'         => 'India',
-                    'phone'           => $order->customer_phone,
-                    'order'           => $order->order_number,
-                    'payment_mode'    => 'Prepaid', // matches default in UI; can be extended per-item later
-                    'cod_amount'      => null,
-                    'total_amount'    => $order->total_amount,
-                    'waybill'         => $order->delhivery_waybill ?? '',
-                    'products_desc'   => $productsDesc,
-                    'quantity'        => $totalQuantity ?: 1,
-                    // Use charged weight (grams) from request if provided
-                    'weight'          => $validated['cgm'] ?? null,
-                    'shipment_length' => $validated['box_length'] ?? null,
-                    'shipment_width'  => $validated['box_width'] ?? null,
-                    'shipment_height' => $validated['box_height'] ?? null,
-                    'shipping_mode'   => 'Surface',
-                ]],
-                'pickup_location' => [
-                    'name' => config('services.delhivery.pickup_location', 'warehouse_name'),
-                ],
-            ];
-
-            $createResult = $this->delhiveryService->createShipment($shipmentPayload);
-            $data         = $createResult['data'] ?? [];
-
-            Log::info('Delhivery shipment create response', [
-                'order_id' => $order->id,
-                'payload'  => $shipmentPayload,
-                'response' => $data,
-            ]);
-
-            // Try to extract waybill from typical response shapes
-            $waybill = $data['packages'][0]['waybill'] ?? $data['waybill'] ?? null;
-
-            if ($waybill) {
-                $order->delhivery_waybill = (string) $waybill;
-                $order->status            = 'placed';
-                $order->save();
-                $shipmentCreated = true;
-            }
-        } catch (DelhiveryException $e) {
-            Log::error('Delhivery shipment creation failed', [
-                'order_id' => $order->id,
-                'message'  => $e->getMessage(),
-                'context'  => method_exists($e, 'getContext') ? $e->getContext() : null,
-            ]);
         }
 
-        if (! $shipmentCreated) {
+        if ($createInDelhivery && ! $shipmentCreated) {
             // Make it clear this order is not yet scheduled with the delivery partner.
             $notes = trim((string) $order->notes);
             $suffix = 'Not scheduled with delivery partner (Delhivery shipment not created).';
@@ -204,9 +209,13 @@ class OrderController extends Controller
             $order->save();
         }
 
-        $message = $shipmentCreated
-            ? 'Order created and ready for shipping.'
-            : 'Order created but not yet scheduled with delivery partner.';
+        if (! $createInDelhivery) {
+            $message = 'Order created without creating Delhivery shipment.';
+        } elseif ($shipmentCreated) {
+            $message = 'Order created and ready for shipping.';
+        } else {
+            $message = 'Order created but not yet scheduled with delivery partner.';
+        }
 
         return ApiResponse::success($order->fresh('items'), $message, 201);
     }

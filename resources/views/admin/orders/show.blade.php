@@ -1,7 +1,55 @@
 @extends('layouts.app')
 
 @section('content')
-<div class="container mb-5">
+<style>
+    .order-detail-page {
+        font-size: 0.9rem;
+    }
+
+    .order-detail-page .card-header {
+        background: #f9fafb;
+    }
+
+    .order-detail-page .order-header-icon {
+        width: 40px;
+        height: 40px;
+        border-radius: 14px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        background: linear-gradient(135deg, #6366f1, #a855f7);
+        color: #ffffff;
+        margin-right: 0.75rem;
+    }
+
+    .order-detail-page .mini-label {
+        font-size: 0.7rem;
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+        color: #9ca3af;
+    }
+
+    .order-detail-page .info-row {
+        display: flex;
+        align-items: flex-start;
+        margin-bottom: 0.25rem;
+    }
+
+    .order-detail-page .info-row i {
+        width: 18px;
+        margin-right: 0.4rem;
+        color: #6b7280;
+    }
+
+    .order-detail-page .amount-badge {
+        padding: 0.2rem 0.6rem;
+        border-radius: 999px;
+        font-size: 0.8rem;
+        background: #eef2ff;
+        color: #4f46e5;
+    }
+</style>
+<div class="container mb-5 order-detail-page">
     <div class="d-flex justify-content-between align-items-center mb-3">
         <h4 class="mb-0">Order Details</h4>
         <a href="{{ route('admin.orders.index') }}" class="btn btn-outline-secondary">Back to Orders</a>
@@ -19,29 +67,39 @@
 
     <div class="card mb-3">
         <div class="card-header d-flex justify-content-between align-items-center">
-            <div>
-                <h5 class="mb-0">Order #{{ $order->order_number }}</h5>
-                <small class="text-muted">Placed on {{ $order->created_at }}</small>
+            <div class="d-flex align-items-center">
+                <div class="order-header-icon">
+                    <i class="fa-solid fa-file-invoice"></i>
+                </div>
+                <div>
+                    <div class="mini-label">Order</div>
+                    <h5 class="mb-0">#{{ $order->order_number }}</h5>
+                    <small class="text-muted">
+                        <i class="fa-regular fa-clock me-1"></i>
+                        Placed on {{ $order->created_at }}
+                    </small>
+                </div>
             </div>
             <div class="d-flex align-items-center gap-2">
-                <span class="badge bg-{{ $order->status === 'placed' ? 'success' : ($order->status === 'cancelled' ? 'danger' : 'secondary') }} text-uppercase">
+                <span class="badge bg-{{ $order->status === 'placed' ? 'success' : ($order->status === 'cancelled' ? 'danger' : 'secondary') }} text-uppercase d-inline-flex align-items-center gap-1">
+                    <i class="fa-solid fa-circle-dot"></i>
                     {{ $order->status }}
                 </span>
                 <div class="btn-group btn-group-sm" role="group" aria-label="Order actions">
                     @if($order->delhivery_waybill)
-                        <a href="{{ route('admin.orders.label', $order) }}" class="btn btn-outline-secondary">
-                            Download Label
+                        <a href="{{ route('admin.orders.label', $order) }}" class="btn btn-outline-secondary" title="Download label">
+                            <i class="fa-solid fa-print"></i>
                         </a>
                     @endif
-                    <button type="button" class="btn btn-outline-primary" id="updateShippingBtn">
-                        Update Shipping
+                    <button type="button" class="btn btn-outline-primary" id="updateShippingBtn" title="Update shipping cost">
+                        <i class="fa-solid fa-indian-rupee-sign"></i>
                     </button>
-                    <button type="button" class="btn btn-outline-success" id="createPickupBtn">
-                        Create Pickup
+                    <button type="button" class="btn btn-outline-success" id="createPickupBtn" title="Create pickup">
+                        <i class="fa-solid fa-truck"></i>
                     </button>
                     @if($order->status !== 'cancelled')
-                        <button type="button" class="btn btn-outline-danger" id="cancelOrderBtn">
-                            Cancel Order
+                        <button type="button" class="btn btn-outline-danger" id="cancelOrderBtn" title="Cancel order">
+                            <i class="fa-regular fa-circle-xmark"></i>
                         </button>
                     @endif
                 </div>
@@ -51,34 +109,47 @@
             <div class="row">
                 <div class="col-md-6 mb-3">
                     <div class="d-flex justify-content-between align-items-center mb-1">
-                        <h6 class="mb-0">Customer & Address</h6>
+                        <div>
+                            <div class="mini-label">Customer</div>
+                            <h6 class="mb-0"><i class="fa-regular fa-user me-1"></i>{{ $order->customer_name }}</h6>
+                        </div>
                         <button type="button" class="btn btn-sm btn-outline-secondary" id="toggleAddressEditBtn">
-                            Edit Address
+                            <i class="fa-regular fa-pen-to-square me-1"></i> Edit
                         </button>
                     </div>
 
                     <div id="addressViewBlock">
-                        <p class="mb-1"><strong>Name:</strong> {{ $order->customer_name }}</p>
                         @if($order->customer_phone)
-                            <p class="mb-1"><strong>Phone:</strong> {{ $order->customer_phone }}</p>
+                            <div class="info-row">
+                                <i class="fa-solid fa-phone"></i>
+                                <div>{{ $order->customer_phone }}</div>
+                            </div>
                         @endif
                         @if($order->customer_email)
-                            <p class="mb-1"><strong>Email:</strong> {{ $order->customer_email }}</p>
+                            <div class="info-row">
+                                <i class="fa-regular fa-envelope"></i>
+                                <div>{{ $order->customer_email }}</div>
+                            </div>
                         @endif
-                        <p class="mb-1">
-                            <strong>Address:</strong>
-                            {{ $order->address_line1 }}
-                            @if($order->address_line2)
-                                , {{ $order->address_line2 }}
-                            @endif
-                            , {{ $order->city }}
-                            @if($order->state)
-                                , {{ $order->state }}
-                            @endif
-                            - {{ $order->pincode }}
-                        </p>
+                        <div class="info-row">
+                            <i class="fa-solid fa-location-dot"></i>
+                            <div>
+                                {{ $order->address_line1 }}
+                                @if($order->address_line2)
+                                    , {{ $order->address_line2 }}
+                                @endif
+                                , {{ $order->city }}
+                                @if($order->state)
+                                    , {{ $order->state }}
+                                @endif
+                                - {{ $order->pincode }}
+                            </div>
+                        </div>
                         @if($order->notes)
-                            <p class="mb-1"><strong>Notes:</strong> {{ $order->notes }}</p>
+                            <div class="info-row">
+                                <i class="fa-regular fa-note-sticky"></i>
+                                <div>{{ $order->notes }}</div>
+                            </div>
                         @endif
                     </div>
 
