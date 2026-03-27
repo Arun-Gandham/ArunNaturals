@@ -48,6 +48,15 @@
         background: #eef2ff;
         color: #4f46e5;
     }
+
+    @keyframes status-blink {
+        0%, 100% { opacity: 1; }
+        50% { opacity: 0.35; }
+    }
+
+    .order-status-badge-blink {
+        animation: status-blink 1.2s ease-in-out infinite;
+    }
 </style>
 <div class="container mb-5 order-detail-page">
     <div class="d-flex justify-content-between align-items-center mb-3">
@@ -81,7 +90,7 @@
                 </div>
             </div>
             <div class="d-flex align-items-center gap-2">
-                <span class="badge bg-{{ $order->status === 'placed' ? 'success' : ($order->status === 'cancelled' ? 'danger' : 'secondary') }} text-uppercase d-inline-flex align-items-center gap-1">
+                <span class="badge bg-{{ $order->status === 'placed' ? 'success' : ($order->status === 'cancelled' ? 'danger' : 'secondary') }} text-uppercase d-inline-flex align-items-center gap-1 order-status-badge-blink">
                     <i class="fa-solid fa-circle-dot"></i>
                     {{ $order->status }}
                 </span>
@@ -208,7 +217,29 @@
                         ₹<span id="shippingCostDisplay">{{ number_format($order->shipping_cost, 2) }}</span>
                     </p>
                     <p class="mb-1"><strong>Total Amount:</strong> ₹{{ number_format($order->total_amount, 2) }}</p>
-                    <p class="mb-1"><strong>Current Status:</strong> {{ ucfirst($order->status) }}</p>
+                    <p class="mb-1">
+                        <strong>Current Status:</strong>
+                        {{ \Illuminate\Support\Str::headline($order->status) }}
+                    </p>
+
+                    <div class="mt-2" id="statusEditContainer">
+                        <label class="form-label form-label-sm mb-1">Update Status</label>
+                        <div class="input-group input-group-sm" style="max-width: 260px;">
+                            <select id="statusSelect" class="form-select form-select-sm">
+                                <option value="draft" {{ $order->status === 'draft' ? 'selected' : '' }}>Draft</option>
+                                <option value="placed" {{ $order->status === 'placed' ? 'selected' : '' }}>Placed</option>
+                                <option value="preparing_for_dispatch" {{ $order->status === 'preparing_for_dispatch' ? 'selected' : '' }}>Preparing for dispatch</option>
+                                <option value="ready_for_pickup" {{ $order->status === 'ready_for_pickup' ? 'selected' : '' }}>Ready for pickup</option>
+                                <option value="picked_up" {{ $order->status === 'picked_up' ? 'selected' : '' }}>Picked up</option>
+                                <option value="in_transit" {{ $order->status === 'in_transit' ? 'selected' : '' }}>In transit</option>
+                                <option value="out_for_delivery" {{ $order->status === 'out_for_delivery' ? 'selected' : '' }}>Out for delivery</option>
+                                <option value="delivered" {{ $order->status === 'delivered' ? 'selected' : '' }}>Delivered</option>
+                                <option value="cancelled" {{ $order->status === 'cancelled' ? 'selected' : '' }}>Cancelled</option>
+                            </select>
+                            <button class="btn btn-outline-primary" type="button" id="saveStatusBtn">Save</button>
+                        </div>
+                        <small id="statusUpdateMessage" class="d-block mt-1 text-muted"></small>
+                    </div>
                     <p class="mb-1"><strong>Last Updated:</strong> {{ $order->updated_at }}</p>
 
                     <div id="shippingEditContainer" class="mt-2 d-none">
@@ -240,11 +271,13 @@
                 </h6>
                 <small class="text-muted">Waybill: {{ $order->delhivery_waybill }}</small>
             </div>
-            <div class="card-body">
-                <div id="trackingMessage" class="small text-muted mb-2"></div>
-                <div id="trackingEta" class="small fw-semibold mb-2"></div>
-                <div id="trackingTimeline" class="small"></div>
-            </div>
+              <div class="card-body">
+                  <div id="trackingMessage" class="small text-muted mb-2"></div>
+                  <div id="trackingEta" class="small fw-semibold mb-1"></div>
+                  <div id="trackingLocation" class="small text-muted mb-2"></div>
+                  <div id="trackingSteps" class="small mb-2"></div>
+                  <div id="trackingTimeline" class="small d-none"></div>
+              </div>
         </div>
     @endif
 
@@ -331,7 +364,250 @@
         const addrNotes = document.getElementById('addrNotes');
         const trackingMessage = document.getElementById('trackingMessage');
         const trackingEta = document.getElementById('trackingEta');
+        const trackingLocation = document.getElementById('trackingLocation');
+        const trackingSteps = document.getElementById('trackingSteps');
         const trackingTimeline = document.getElementById('trackingTimeline');
+        const orderStatus = '{{ $order->status }}';
+        const statusSelect = document.getElementById('statusSelect');
+        const saveStatusBtn = document.getElementById('saveStatusBtn');
+        const statusUpdateMessage = document.getElementById('statusUpdateMessage');
+
+        // v2 helpers with richer states (preparing, ready for pickup, picked up, etc.)
+        function normalizeEvents(scans) {
+            if (!Array.isArray(scans)) {
+                return [];
+            }
+
+            return scans.map(scan => {
+                const detail =
+                    scan.ScanDetail ||
+                    scan.scandetail ||
+                    scan.scanDetail ||
+                    scan.Status ||
+                    scan.status ||
+                    scan;
+
+                const status =
+                    detail.Status ||
+                    detail.StatusType ||
+                    detail.Scan ||
+                    detail.scan ||
+                    '';
+                const loc =
+                    detail.StatusLocation ||
+                    detail.ScannedLocation ||
+                    detail.scannedLocation ||
+                    detail.Scanned_Office ||
+                    '';
+                const time =
+                    detail.StatusDateTime ||
+                    detail.ScanDateTime ||
+                    detail.scanDateTime ||
+                    detail.ScannedDate ||
+                    detail.Scanned_time ||
+                    '';
+                const remarks =
+                    detail.Instructions ||
+                    detail.Remarks ||
+                    detail.remarks ||
+                    '';
+
+                return { status, loc, time, remarks };
+            });
+        }
+
+        function renderTrackingStepsV2(rawScans, shipment) {
+            if (!trackingSteps) {
+                return;
+            }
+
+            const events = normalizeEvents(rawScans);
+
+            const hasDelivered = events.some(e => /delivered/i.test(e.status));
+            const hasOutForDelivery = events.some(e => /out for delivery/i.test(e.status));
+            const hasInTransit = events.some(e => /in[- ]?transit/i.test(e.status));
+            const hasManifest = events.some(e => /manifest|manifested/i.test(e.status) || /manifest uploaded/i.test(e.remarks));
+            const hasPickup = events.some(e => /picked up|pickup/i.test(e.status) || /picked up/i.test(e.remarks));
+
+            const firstEvent = events[0] || null;
+            const manifestEvent = events.find(e => /manifest|manifested/i.test(e.status) || /manifest uploaded/i.test(e.remarks)) || firstEvent;
+
+            function formatTime(str) {
+                if (!str) return '';
+                return str.replace('T', ' ').slice(0, 16);
+            }
+
+            const pickedEvent = events.find(e => /picked up|pickup/i.test(e.status)) || null;
+            const transitEvent = events.find(e => /in[- ]?transit/i.test(e.status)) || null;
+            const ofdEvent = events.find(e => /out for delivery/i.test(e.status)) || null;
+            const deliveredEvent = events.find(e => /delivered/i.test(e.status)) || null;
+
+            const steps = [
+                {
+                    key: 'preparing_for_dispatch',
+                    label: 'Preparing for dispatch',
+                    active: true,
+                    time: manifestEvent ? formatTime(manifestEvent.time) : '',
+                    note: ''
+                },
+                {
+                    key: 'ready_for_pickup',
+                    label: 'Ready for pickup',
+                    active: hasManifest,
+                    time: manifestEvent ? formatTime(manifestEvent.time) : '',
+                    note: manifestEvent && manifestEvent.remarks
+                        ? manifestEvent.remarks
+                        : (manifestEvent && manifestEvent.loc ? `Manifest uploaded at ${manifestEvent.loc}` : '')
+                },
+                {
+                    key: 'picked_up',
+                    label: 'Picked up',
+                    active: hasPickup || hasInTransit || hasOutForDelivery || hasDelivered,
+                    time: pickedEvent ? formatTime(pickedEvent.time) : '',
+                    note: pickedEvent && pickedEvent.remarks ? pickedEvent.remarks : ''
+                },
+                {
+                    key: 'in_transit',
+                    label: 'Dispatched / In-transit',
+                    active: hasInTransit || hasOutForDelivery || hasDelivered,
+                    time: transitEvent ? formatTime(transitEvent.time) : '',
+                    note: transitEvent && transitEvent.remarks ? transitEvent.remarks : ''
+                },
+                {
+                    key: 'out_for_delivery',
+                    label: 'Out for delivery',
+                    active: hasOutForDelivery || hasDelivered,
+                    time: ofdEvent ? formatTime(ofdEvent.time) : '',
+                    note: ofdEvent && ofdEvent.remarks ? ofdEvent.remarks : ''
+                },
+                {
+                    key: 'delivered',
+                    label: 'Delivered',
+                    active: hasDelivered,
+                    time: deliveredEvent ? formatTime(deliveredEvent.time) : '',
+                    note: ''
+                },
+            ];
+
+            let suggestedStatus = 'placed';
+            if (hasDelivered) {
+                suggestedStatus = 'delivered';
+            } else if (hasOutForDelivery) {
+                suggestedStatus = 'out_for_delivery';
+            } else if (hasInTransit) {
+                suggestedStatus = 'in_transit';
+            } else if (hasPickup) {
+                suggestedStatus = 'picked_up';
+            } else if (hasManifest) {
+                suggestedStatus = 'ready_for_pickup';
+            } else {
+                suggestedStatus = 'preparing_for_dispatch';
+            }
+
+            const currentStatus = '{{ $order->status }}';
+
+            // Find latest active step to highlight as "current"
+            let currentIndex = -1;
+            steps.forEach((s, i) => {
+                if (s.active) currentIndex = i;
+            });
+  
+            const itemsHtml = steps.map((step, index) => {
+                const isActive = step.active;
+                const isLast = index === steps.length - 1;
+                const isCurrent = index === currentIndex;
+
+                const iconClass = index === 0
+                    ? 'fa-box-open'
+                    : index === steps.length - 1
+                        ? 'fa-envelope-open-text'
+                        : 'fa-truck';
+
+                return `
+                      <div class="d-flex position-relative mb-3 ${isCurrent ? 'order-status-badge-blink' : ''}">
+                          <div class="d-flex flex-column align-items-center me-3">
+                            <div class="rounded-circle ${isActive ? 'bg-primary text-white' : 'bg-light text-muted'} d-flex align-items-center justify-content-center" style="width:32px;height:32px;">
+                                <i class="fa-solid ${iconClass}"></i>
+                            </div>
+                            ${isLast ? '' : '<div class="flex-grow-1 border-start border-2 mt-1" style="min-height: 32px;"></div>'}
+                        </div>
+                        <div class="flex-grow-1">
+                            <div class="d-flex justify-content-between align-items-center mb-1">
+                                <span class="${isActive ? 'fw-semibold' : 'text-muted'}">${step.label}</span>
+                            </div>
+                            ${step.time ? `<div class="small text-muted">${step.time}</div>` : ''}
+                            ${step.note ? `<div class="small text-muted">${step.note}</div>` : ''}
+                        </div>
+                    </div>
+                `;
+            }).join('');
+
+            trackingSteps.innerHTML = itemsHtml;
+
+            // Automatically sync local order status to latest shipment phase,
+            // but only move it forward (never backwards).
+            const statusOrder = [
+                'draft',
+                'placed',
+                'preparing_for_dispatch',
+                'ready_for_pickup',
+                'picked_up',
+                'in_transit',
+                'out_for_delivery',
+                'delivered',
+                'cancelled',
+            ];
+
+            const rank = (value) => {
+                const idx = statusOrder.indexOf(value);
+                return idx === -1 ? 0 : idx;
+            };
+
+            if (
+                suggestedStatus !== currentStatus &&
+                suggestedStatus !== 'placed' &&
+                currentStatus !== 'cancelled' &&
+                currentStatus !== 'delivered' &&
+                rank(suggestedStatus) > rank(currentStatus)
+            ) {
+                // Fire and forget; trackingMessage will show lightweight feedback.
+                (async () => {
+                    try {
+                        if (trackingMessage) {
+                            trackingMessage.textContent = 'Syncing order status with latest tracking...';
+                        }
+
+                        const response = await fetch(`${adminApiBase}/orders/${orderId}`, {
+                            method: 'PATCH',
+                            headers: {
+                                'Content-Type': 'application/json',
+                                'Accept': 'application/json',
+                                'X-CSRF-TOKEN': '{{ csrf_token() }}',
+                            },
+                            body: JSON.stringify({ status: suggestedStatus }),
+                        });
+
+                        const data = await response.json();
+
+                        if (!response.ok || !data.success) {
+                            if (trackingMessage) {
+                                trackingMessage.textContent = data.message || 'Failed to sync order status.';
+                            }
+                            return;
+                        }
+
+                        if (trackingMessage) {
+                            trackingMessage.textContent = 'Order status synced with shipment.';
+                        }
+                        setTimeout(() => window.location.reload(), 800);
+                    } catch (e) {
+                        if (trackingMessage) {
+                            trackingMessage.textContent = 'Error syncing order status with shipment.';
+                        }
+                    }
+                })();
+            }
+        }
 
         async function trackShipment() {
             if (!delhiveryWaybill) {
@@ -388,11 +664,34 @@
                         || null;
                 }
 
-                if (trackingEta) {
-                    trackingEta.textContent = eta
-                        ? `Estimated delivery: ${eta}`
-                        : '';
-                }
+                  if (trackingEta) {
+                      trackingEta.textContent = eta
+                          ? `Estimated delivery: ${eta}`
+                          : '';
+                  }
+
+                  // Show current location from the latest scan, if available
+                  if (trackingLocation) {
+                      trackingLocation.textContent = '';
+                      if (shipment) {
+                          let latestScan = null;
+                          let scansForLocation = [];
+                          if (shipment && Array.isArray(shipment.Scans)) {
+                              scansForLocation = shipment.Scans;
+                          } else if (shipment && Array.isArray(shipment.scans)) {
+                              scansForLocation = shipment.scans;
+                          }
+
+                          if (Array.isArray(scansForLocation) && scansForLocation.length) {
+                              const normalized = normalizeEvents(scansForLocation);
+                              latestScan = normalized[normalized.length - 1] || null;
+                          }
+
+                          if (latestScan && latestScan.loc) {
+                              trackingLocation.textContent = `Current location: ${latestScan.loc}`;
+                          }
+                      }
+                  }
 
                 let scans = [];
                 if (shipment && Array.isArray(shipment.Scans)) {
@@ -400,6 +699,9 @@
                 } else if (shipment && Array.isArray(shipment.scans)) {
                     scans = shipment.scans;
                 }
+
+                // Build high-level tracking steps (Ready to Ship, In-transit, etc.)
+                renderTrackingStepsV2(scans, shipment);
 
                 if (trackingTimeline) {
                     if (!scans.length) {
@@ -562,6 +864,44 @@
             });
         }
 
+        // Manual status update handler
+        if (saveStatusBtn && statusSelect) {
+            saveStatusBtn.addEventListener('click', async () => {
+                const newStatus = statusSelect.value;
+                if (!newStatus) {
+                    return;
+                }
+
+                statusUpdateMessage.textContent = 'Updating status...';
+
+                try {
+                    const response = await fetch(`${adminApiBase}/orders/${orderId}`, {
+                        method: 'PATCH',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'Accept': 'application/json',
+                            'X-CSRF-TOKEN': '{{ csrf_token() }}',
+                        },
+                        body: JSON.stringify({ status: newStatus }),
+                    });
+
+                    const data = await response.json();
+
+                    if (!response.ok || !data.success) {
+                        statusUpdateMessage.textContent = data.message || 'Failed to update status.';
+                        return;
+                    }
+
+                    statusUpdateMessage.textContent = 'Status updated.';
+                    setTimeout(() => {
+                        window.location.reload();
+                    }, 800);
+                } catch (e) {
+                    statusUpdateMessage.textContent = 'Error updating status.';
+                }
+            });
+        }
+
         if (cancelOrderBtn) {
             cancelOrderBtn.addEventListener('click', async () => {
                 if (!confirm('Are you sure you want to cancel this order?')) {
@@ -629,6 +969,12 @@
                     setOrderMessage('Error creating pickup request.', 'danger');
                 }
             });
+        }
+
+        // Auto-fetch tracking when page opens, as long as
+        // we have a waybill and the order is not cancelled or delivered.
+        if (delhiveryWaybill && orderStatus !== 'cancelled' && orderStatus !== 'delivered') {
+            trackShipment();
         }
     });
 </script>

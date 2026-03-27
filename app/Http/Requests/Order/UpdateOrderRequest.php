@@ -24,6 +24,7 @@ class UpdateOrderRequest extends FormRequest
             'pincode'         => ['sometimes', 'required', 'digits:6'],
             'notes'           => ['sometimes', 'nullable', 'string'],
             'shipping_cost'   => ['sometimes', 'numeric', 'min:0'],
+            'status'          => ['sometimes', 'string', 'in:draft,placed,preparing_for_dispatch,ready_for_pickup,picked_up,in_transit,out_for_delivery,delivered,cancelled'],
             'items'           => ['sometimes', 'array', 'min:1'],
             'items.*.product_name' => ['required_with:items', 'string', 'max:255'],
             'items.*.sku'          => ['nullabl/*  */e', 'string', 'max:100'],
