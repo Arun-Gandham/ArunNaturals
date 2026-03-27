@@ -1,7 +1,33 @@
 @extends('layouts.app')
 
 @section('content')
-<div class="container-fluid mb-5">
+<style>
+    .orders-compact {
+        font-size: 1rem;
+    }
+
+    .orders-compact .card-header,
+    .orders-compact .card-body {
+        padding-top: 0.75rem;
+        padding-bottom: 0.75rem;
+    }
+
+    .orders-compact .form-control,
+    .orders-compact .form-select,
+    .orders-compact .btn {
+        font-size: 1rem;
+        padding-top: 0.2rem;
+        padding-bottom: 0.2rem;
+        height: auto;
+    }
+
+    .orders-compact table th,
+    .orders-compact table td {
+        padding-top: 0.4rem;
+        padding-bottom: 0.4rem;
+    }
+</style>
+<div class="container-fluid mb-5 orders-compact">
     <div class="d-flex justify-content-between align-items-center mb-3">
         <h4 class="mb-0">Orders</h4>
         <a href="{{ route('admin.orders.create') }}" class="btn btn-primary">Create Order</a>
@@ -9,7 +35,7 @@
 
     <div class="card mb-3">
         <div class="card-header">
-            <form id="ordersFilterForm" class="row g-3 align-items-end">
+            <form id="ordersFilterForm" class="row g-3 align-items-end small">
                 <div class="col-md-3">
                     <label for="search" class="form-label mb-1">Search (Order ID, AWB, Customer)</label>
                     <input type="text" id="search" name="search" class="form-control" placeholder="ORD‑..., AWB, name, phone">
@@ -51,8 +77,8 @@
         </div>
         <div class="card-body p-0">
             <div class="table-responsive">
-                <table class="table table-hover mb-0 align-middle" id="ordersTable">
-                    <thead class="table-light">
+                <table class="table table-hover table-sm mb-0 align-middle small" id="ordersTable">
+                    <thead class="table-light small text-uppercase text-muted">
                     <tr>
                         <th style="width: 36px;">
                             <input type="checkbox" id="selectAllOrders">
