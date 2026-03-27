@@ -30,6 +30,7 @@ Route::prefix('admin')->group(function () {
     Route::patch('orders/{order}', [OrderController::class, 'update']);
     Route::delete('orders/{order}', [OrderController::class, 'destroy']);
     Route::post('orders/check-availability', [OrderController::class, 'checkAvailability']);
+    Route::post('orders/sync-statuses', [OrderController::class, 'syncStatuses']);
 });
 Route::middleware('auth:sanctum')->get('/user', function (Request $request) {
     return $request->user();

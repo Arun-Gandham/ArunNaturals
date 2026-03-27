@@ -70,6 +70,9 @@
             <h5 class="mb-0">Order List</h5>
             <div class="d-flex gap-2">
                 <button class="btn btn-sm btn-outline-secondary" type="button" id="refreshOrdersBtn">Refresh</button>
+                <button class="btn btn-sm btn-outline-success" type="button" id="syncStatusesBtn">
+                    Sync Active Statuses
+                </button>
                 <button class="btn btn-sm btn-primary" type="button" id="downloadSelectedLabelsBtn">
                     Download Selected Labels
                 </button>
@@ -269,10 +272,45 @@
     document.addEventListener('DOMContentLoaded', () => {
         const refreshBtn = document.getElementById('refreshOrdersBtn');
         const downloadSelectedBtn = document.getElementById('downloadSelectedLabelsBtn');
+        const syncStatusesBtn = document.getElementById('syncStatusesBtn');
         const selectAllCheckbox = document.getElementById('selectAllOrders');
 
         if (refreshBtn) {
             refreshBtn.addEventListener('click', () => loadOrders());
+        }
+
+        if (syncStatusesBtn) {
+            syncStatusesBtn.addEventListener('click', async () => {
+                if (!confirm('Sync statuses for all non-delivered, non-cancelled orders with Delhivery?')) {
+                    return;
+                }
+
+                showMessage('ordersMessage', 'Syncing statuses with Delhivery...', 'info');
+
+                try {
+                    const response = await fetch(`${apiBase}/orders/sync-statuses`, {
+                        method: 'POST',
+                        headers: {
+                            'Accept': 'application/json',
+                            'X-CSRF-TOKEN': '{{ csrf_token() }}',
+                        },
+                    });
+
+                    const data = await response.json();
+
+                    if (!response.ok || !data.success) {
+                        showMessage('ordersMessage', data.message || 'Failed to sync statuses.', 'danger');
+                        return;
+                    }
+
+                    const meta = data.data || {};
+                    const summary = `Statuses synced. Checked ${meta.checked ?? 0} orders, updated ${meta.updated ?? 0}.`;
+                    showMessage('ordersMessage', summary, 'success');
+                    loadOrders(currentPage);
+                } catch (e) {
+                    showMessage('ordersMessage', 'Error syncing statuses.', 'danger');
+                }
+            });
         }
 
         if (selectAllCheckbox) {

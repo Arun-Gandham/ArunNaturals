@@ -337,4 +337,119 @@ class OrderController extends Controller
             );
         }
     }
+
+    /**
+     * Sync statuses for all orders that have a Delhivery waybill
+     * and are not yet delivered or cancelled.
+     */
+    public function syncStatuses()
+    {
+        $orders = Order::whereNotNull('delhivery_waybill')
+            ->whereNotIn('status', ['delivered', 'cancelled'])
+            ->get();
+
+        $statusOrder = [
+            'draft',
+            'placed',
+            'preparing_for_dispatch',
+            'ready_for_pickup',
+            'picked_up',
+            'in_transit',
+            'out_for_delivery',
+            'delivered',
+            'cancelled',
+        ];
+
+        $rank = function (string $value) use ($statusOrder): int {
+            $idx = array_search($value, $statusOrder, true);
+            return $idx === false ? 0 : $idx;
+        };
+
+        $updated = 0;
+        $checked = 0;
+
+        foreach ($orders as $order) {
+            try {
+                $checked++;
+                $result = $this->delhiveryService->trackShipment($order->delhivery_waybill, null);
+                $data = $result['data'] ?? [];
+
+                $shipment = null;
+                if (!empty($data['ShipmentData']) && is_array($data['ShipmentData'])) {
+                    $shipment = $data['ShipmentData'][0]['Shipment'] ?? null;
+                } elseif (!empty($data['Shipment'])) {
+                    $shipment = $data['Shipment'];
+                }
+
+                if (!$shipment) {
+                    continue;
+                }
+
+                $scans = [];
+                if (!empty($shipment['Scans']) && is_array($shipment['Scans'])) {
+                    $scans = $shipment['Scans'];
+                } elseif (!empty($shipment['scans']) && is_array($shipment['scans'])) {
+                    $scans = $shipment['scans'];
+                }
+
+                $events = [];
+                foreach ($scans as $scan) {
+                    $detail = $scan['ScanDetail'] ?? $scan['Status'] ?? $scan;
+                    $status = $detail['Status'] ?? $detail['StatusType'] ?? $detail['Scan'] ?? null;
+                    $remarks = $detail['Instructions'] ?? $detail['Remarks'] ?? null;
+                    $events[] = [
+                        'status'  => $status ?? '',
+                        'remarks' => $remarks ?? '',
+                    ];
+                }
+
+                $hasDelivered = collect($events)->contains(fn ($e) => preg_match('/delivered/i', $e['status']));
+                $hasOutForDelivery = collect($events)->contains(fn ($e) => preg_match('/out for delivery/i', $e['status']));
+                $hasInTransit = collect($events)->contains(fn ($e) => preg_match('/in[- ]?transit/i', $e['status']));
+                $hasManifest = collect($events)->contains(fn ($e) => preg_match('/manifest|manifested/i', $e['status']) || preg_match('/manifest uploaded/i', $e['remarks']));
+                $hasPickup = collect($events)->contains(fn ($e) => preg_match('/picked up|pickup/i', $e['status']) || preg_match('/picked up/i', $e['remarks']));
+
+                $suggested = 'placed';
+                if ($hasDelivered) {
+                    $suggested = 'delivered';
+                } elseif ($hasOutForDelivery) {
+                    $suggested = 'out_for_delivery';
+                } elseif ($hasInTransit) {
+                    $suggested = 'in_transit';
+                } elseif ($hasPickup) {
+                    $suggested = 'picked_up';
+                } elseif ($hasManifest) {
+                    $suggested = 'ready_for_pickup';
+                } else {
+                    $suggested = 'preparing_for_dispatch';
+                }
+
+                if (
+                    $suggested !== $order->status &&
+                    $suggested !== 'placed' &&
+                    $order->status !== 'cancelled' &&
+                    $order->status !== 'delivered' &&
+                    $rank($suggested) > $rank($order->status)
+                ) {
+                    $order->status = $suggested;
+                    $order->save();
+                    $updated++;
+                }
+            } catch (\Throwable $e) {
+                Log::warning('Failed to sync order status from Delhivery', [
+                    'order_id' => $order->id,
+                    'message'  => $e->getMessage(),
+                ]);
+                continue;
+            }
+        }
+
+        return ApiResponse::success(
+            [
+                'checked' => $checked,
+                'updated' => $updated,
+            ],
+            'Statuses synced from Delhivery.'
+        );
+    }
 }
