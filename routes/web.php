@@ -7,6 +7,7 @@ use App\Http\Controllers\Admin\ProductController as AdminProductController;
 use App\Http\Controllers\Admin\CategoryController as AdminCategoryController;
 use App\Http\Controllers\Admin\AdminController;
 use App\Http\Controllers\Admin\WhatsappCampaignController;
+use App\Http\Controllers\Admin\CouponController;
 // Enable Laravel auth routes (login, register, etc.)
 Auth::routes();
 
@@ -75,4 +76,16 @@ Route::middleware(['auth', 'admin'])->prefix('admin')->name('admin.')->group(fun
     Route::post('/whatsapp/campaigns', [WhatsappCampaignController::class, 'store'])->name('whatsapp.campaigns.store');
     Route::get('/whatsapp/campaigns/{campaign}/recipients', [WhatsappCampaignController::class, 'recipients'])
         ->name('whatsapp.campaigns.recipients');
+
+    // Coupons
+    Route::get('/coupons', [CouponController::class, 'index'])->name('coupons.index');
+    Route::get('/coupons/create', [CouponController::class, 'create'])->name('coupons.create');
+    Route::post('/coupons', [CouponController::class, 'store'])->name('coupons.store');
+    Route::get('/coupons/{coupon}/edit', [CouponController::class, 'edit'])->name('coupons.edit');
+    Route::get('/coupons/{coupon}/customers', [CouponController::class, 'customers'])->name('coupons.customers');
+    Route::post('/coupons/{coupon}/exclude-recipient', [CouponController::class, 'excludeRecipient'])->name('coupons.excludeRecipient');
+    Route::post('/coupons/{coupon}/recipients/save', [CouponController::class, 'saveRecipients'])->name('coupons.recipients.save');
+    Route::put('/coupons/{coupon}', [CouponController::class, 'update'])->name('coupons.update');
+    Route::delete('/coupons/{coupon}', [CouponController::class, 'destroy'])->name('coupons.destroy');
+    Route::get('/coupons/{coupon}/recipients', [CouponController::class, 'recipients'])->name('coupons.recipients');
 });

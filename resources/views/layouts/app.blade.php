@@ -228,6 +228,15 @@
                     </a>
                 </li>
                 <li class="nav-item mb-1">
+                    <a href="{{ route('admin.coupons.index') }}"
+                       class="nav-link sidebar-link {{ request()->routeIs('admin.coupons.*') ? 'active' : '' }}">
+                        <span class="sidebar-icon">
+                            <i class="fa-solid fa-ticket-simple"></i>
+                        </span>
+                        <span>Coupons</span>
+                    </a>
+                </li>
+                <li class="nav-item mb-1">
                     <a href="{{ route('admin.categories.index') }}"
                        class="nav-link sidebar-link {{ request()->routeIs('admin.categories.*') ? 'active' : '' }}">
                         <span class="sidebar-icon">
